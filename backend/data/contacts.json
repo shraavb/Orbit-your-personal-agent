@@ -1,0 +1,20 @@
+{
+  "John": {
+    "full_name": "John Smith",
+    "phone": "+15551234567",
+    "email": "john.smith@example.com",
+    "slack_user_id": null
+  },
+  "Sarah": {
+    "full_name": "Sarah Johnson",
+    "phone": "+15559876543",
+    "email": "sarah.johnson@example.com",
+    "slack_user_id": null
+  },
+  "Team": {
+    "full_name": "Engineering Team",
+    "phone": null,
+    "email": "team@example.com",
+    "slack_channel": "#engineering"
+  }
+}

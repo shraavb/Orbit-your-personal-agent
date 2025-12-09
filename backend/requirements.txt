@@ -1,0 +1,35 @@
+# Web Framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+python-multipart==0.0.19
+
+# LangChain & LLM
+langchain==0.3.16
+langchain-anthropic==0.3.9
+langsmith==0.2.10
+
+# ASR (Whisper) - Compatible with Python 3.9-3.12
+openai-whisper==20240930
+
+# Database
+sqlalchemy==2.0.36
+psycopg[binary]>=3.2.10
+alembic==1.14.0
+
+# HTTP Client & APIs
+httpx==0.28.1
+elevenlabs==2.26.0
+twilio==9.4.0
+google-auth==2.38.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
+google-api-python-client==2.159.0
+slack-sdk==3.34.0
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.10.5
+pydantic-settings==2.7.1
+
+# Redis (optional for MVP)
+redis==5.2.1
