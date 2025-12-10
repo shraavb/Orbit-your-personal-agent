@@ -16,13 +16,39 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const [audioInitialized, setAudioInitialized] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Initialize audio on first user interaction
+  const initializeAudio = () => {
+    if (audioRef.current && !audioInitialized) {
+      audioRef.current.load();
+      setAudioInitialized(true);
+    }
+  };
+
+  const playAudio = async (audioUrl: string) => {
+    if (!audioEnabled || !audioRef.current) return;
+
+    try {
+      audioRef.current.src = audioUrl;
+      await audioRef.current.play();
+      setAudioBlocked(false);
+    } catch (err) {
+      console.error('Error playing audio:', err);
+      setAudioBlocked(true);
+    }
+  };
 
   const handleRecordingComplete = async (audioBlob: Blob) => {
     try {
       setIsProcessing(true);
       setError(null);
       setCurrentResponse(null);
+
+      // Initialize audio on first interaction
+      initializeAudio();
 
       const response = await sendVoiceRequest(audioBlob);
       setCurrentResponse(response);
@@ -37,12 +63,9 @@ function App() {
         ...prev,
       ]);
 
-      // Play TTS audio if available and enabled
-      if (response.tts_audio_url && audioEnabled && audioRef.current) {
-        audioRef.current.src = response.tts_audio_url;
-        audioRef.current.play().catch((err) => {
-          console.error('Error playing audio:', err);
-        });
+      // Play TTS audio if available
+      if (response.tts_audio_url) {
+        await playAudio(response.tts_audio_url);
       }
     } catch (err) {
       console.error('Error processing voice request:', err);
@@ -76,11 +99,8 @@ function App() {
       ]);
 
       // Play TTS audio if available
-      if (response.tts_audio_url && audioEnabled && audioRef.current) {
-        audioRef.current.src = response.tts_audio_url;
-        audioRef.current.play().catch((err) => {
-          console.error('Error playing audio:', err);
-        });
+      if (response.tts_audio_url) {
+        await playAudio(response.tts_audio_url);
       }
 
       // Clear current response
@@ -138,6 +158,25 @@ function App() {
             </div>
           )}
 
+          {/* Audio Blocked Warning */}
+          {audioBlocked && audioEnabled && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-yellow-800 text-sm mb-2">
+                🔇 Audio playback was blocked by your browser. Click below to play:
+              </p>
+              <button
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm"
+                onClick={() => {
+                  if (currentResponse?.tts_audio_url) {
+                    playAudio(currentResponse.tts_audio_url);
+                  }
+                }}
+              >
+                ▶️ Play Audio Response
+              </button>
+            </div>
+          )}
+
           {/* Current Response */}
           {currentResponse && (
             <div className="bg-white rounded-lg p-6 shadow-md space-y-4">
@@ -149,6 +188,14 @@ function App() {
                 <div className="text-xs text-gray-500 mb-1">Orbit:</div>
                 <div className="text-gray-700">{currentResponse.agent_response}</div>
               </div>
+              {currentResponse.tts_audio_url && (
+                <button
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  onClick={() => playAudio(currentResponse.tts_audio_url)}
+                >
+                  🔊 Replay Audio
+                </button>
+              )}
             </div>
           )}
 

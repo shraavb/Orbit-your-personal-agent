@@ -74,6 +74,9 @@ class ASRService:
                 temp_file.write(audio_data)
                 temp_path = temp_file.name
 
+            print(f"Audio data size: {len(audio_data)} bytes")
+            print(f"Temp file path: {temp_path}")
+
             # Transcribe using OpenAI Whisper
             result = self.model.transcribe(
                 temp_path,
@@ -85,6 +88,21 @@ class ASRService:
 
             print(f"Detected language: {result.get('language', language)}")
             print(f"Transcript: {transcript}")
+            print(f"Transcript length: {len(transcript)} chars")
+
+            # Check for poor audio quality
+            if len(audio_data) < 5000:  # Less than 5KB likely too short
+                if not transcript:
+                    raise ValueError(
+                        "Audio recording was too short or quiet. "
+                        "Please hold the microphone button for at least 2 seconds and speak clearly."
+                    )
+
+            if not transcript or len(transcript) < 3:
+                raise ValueError(
+                    "Could not understand the audio. "
+                    "Please speak louder and more clearly, and ensure your microphone is working."
+                )
 
             return transcript
 

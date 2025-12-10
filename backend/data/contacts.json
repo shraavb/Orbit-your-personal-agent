@@ -1,20 +1,38 @@
 {
-  "John": {
-    "full_name": "John Smith",
-    "phone": "+15551234567",
-    "email": "john.smith@example.com",
-    "slack_user_id": null
+  "Anna": {
+    "full_name": "Anna",
+    "phone": null,
+    "email": "shraavb@gmail.com",
+    "slack_user_id": "U0A2GPB2XC4"
   },
-  "Sarah": {
-    "full_name": "Sarah Johnson",
-    "phone": "+15559876543",
-    "email": "sarah.johnson@example.com",
-    "slack_user_id": null
+  "Diana": {
+    "full_name": "Diana",
+    "phone": null,
+    "email": "shraab@seas.upenn.edu",
+    "slack_user_id": "U0A37FCRPT2"
+  },
+  "Shraav": {
+    "full_name": "Shraav",
+    "phone": null,
+    "email": null,
+    "slack_user_id": "U0A2D61BABC"
+  },
+  "Racing": {
+    "full_name": "Penn Electric Racing",
+    "phone": null,
+    "email": null,
+    "slack_channel": "#all-penn-electric-racing"
   },
   "Team": {
-    "full_name": "Engineering Team",
+    "full_name": "New Channel",
     "phone": null,
-    "email": "team@example.com",
-    "slack_channel": "#engineering"
+    "email": null,
+    "slack_channel": "#new-channel"
+  },
+  "Social": {
+    "full_name": "Social Channel",
+    "phone": null,
+    "email": null,
+    "slack_channel": "#social"
   }
 }

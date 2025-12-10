@@ -21,8 +21,8 @@ class SendSMSTool(BaseTool):
     Returns a JSON action proposal that requires user confirmation before execution.
     """
 
-    name = "send_sms"
-    description = (
+    name: str = "send_sms"
+    description: str = (
         "Prepare an SMS text message to send to a contact. "
         "This returns a proposal that requires user confirmation before the message is sent. "
         "Use this when the user wants to send a text message to someone."
@@ -91,8 +91,8 @@ class SendEmailTool(BaseTool):
     Returns a JSON action proposal that requires user confirmation before execution.
     """
 
-    name = "send_email"
-    description = (
+    name: str = "send_email"
+    description: str = (
         "Prepare an email to send to a contact. "
         "This returns a proposal that requires user confirmation before the email is sent. "
         "Use this when the user wants to send an email to someone."
@@ -168,8 +168,8 @@ class SendSlackMessageTool(BaseTool):
     Returns a JSON action proposal that requires user confirmation before execution.
     """
 
-    name = "send_slack_message"
-    description = (
+    name: str = "send_slack_message"
+    description: str = (
         "Prepare a Slack message to send to a user or channel. "
         "This returns a proposal that requires user confirmation before the message is sent. "
         "Use this when the user wants to send a Slack message to someone or post to a channel."

@@ -60,7 +60,7 @@ class Request(Base):
     agent_action = Column(JSON, nullable=True)  # Proposed action details
 
     # TTS
-    tts_audio_url = Column(String(500), nullable=True)
+    tts_audio_url = Column(Text, nullable=True)
 
     # Status
     status = Column(Enum(RequestStatus), default=RequestStatus.PENDING)
@@ -69,8 +69,8 @@ class Request(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Metadata
-    metadata = Column(JSON, nullable=True)  # LangSmith trace ID, etc.
+    # Metadata (renamed to avoid SQLAlchemy reserved word)
+    request_metadata = Column("metadata", JSON, nullable=True)  # LangSmith trace ID, etc.
 
     # Relationships
     user = relationship("User", back_populates="requests")
@@ -103,8 +103,8 @@ class Message(Base):
     sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Metadata
-    metadata = Column(JSON, nullable=True)
+    # Metadata (renamed to avoid SQLAlchemy reserved word)
+    message_metadata = Column("metadata", JSON, nullable=True)
 
     # Relationships
     request = relationship("Request", back_populates="messages")

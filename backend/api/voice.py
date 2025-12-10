@@ -46,7 +46,20 @@ async def process_voice_request(
         tts_service = get_tts_service()
 
         # Step 1: Transcribe audio
-        transcript = asr_service.transcribe_base64(request.audio_data)
+        try:
+            transcript = asr_service.transcribe_base64(request.audio_data)
+        except ValueError as e:
+            # User-friendly error for poor audio quality
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        except Exception as e:
+            # Generic transcription error
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Transcription failed: {str(e)}"
+            )
 
         if not transcript:
             raise HTTPException(
@@ -54,9 +67,23 @@ async def process_voice_request(
                 detail="Could not transcribe audio. Please speak clearly and try again."
             )
 
-        # Step 2: Process through agent
+        # Step 2: Get recent conversation history (last 10 messages)
+        recent_requests = db.query(RequestModel).filter(
+            RequestModel.user_id == (db.query(User).first().id if db.query(User).first() else None)
+        ).order_by(RequestModel.created_at.desc()).limit(10).all()
+
+        # Build chat history in reverse chronological order
+        chat_history = []
+        for req in reversed(recent_requests):
+            if req.transcript:
+                chat_history.append({"role": "user", "content": req.transcript})
+            if req.agent_response:
+                chat_history.append({"role": "assistant", "content": req.agent_response})
+
+        # Process through agent with conversation history
         agent_result = agent_service.process_request(
             user_input=transcript,
+            chat_history=chat_history,
             metadata={
                 "tags": ["voice_request"],
                 "audio_format": request.audio_format,
@@ -70,6 +97,18 @@ async def process_voice_request(
             )
 
         agent_response = agent_result["response"]
+
+        # Extract text from structured response if needed
+        if isinstance(agent_response, list):
+            if len(agent_response) > 0 and isinstance(agent_response[0], dict) and 'text' in agent_response[0]:
+                agent_response = agent_response[0]['text']
+            elif len(agent_response) == 0:
+                # Empty response - use a default message
+                agent_response = "Got it!"
+
+        # Ensure agent_response is a string
+        if not isinstance(agent_response, str):
+            agent_response = str(agent_response)
 
         # Step 3: Generate TTS
         tts_audio_base64 = await tts_service.text_to_speech_base64(agent_response)
@@ -128,7 +167,7 @@ async def process_voice_request(
             agent_action=proposed_action,
             tts_audio_url=tts_audio_url,
             status=RequestStatus.PROCESSING,
-            metadata={
+            request_metadata={
                 "run_id": agent_result.get("run_id"),
                 "audio_format": request.audio_format,
             }
@@ -309,10 +348,17 @@ async def execute_sms(params: Dict[str, Any], request_id: int, db: Session) -> D
 
         twilio_service = get_twilio_service()
 
+        # Get user name to prepend to message
+        user = db.query(User).first()
+        user_name = user.name if user else "User"
+
+        # Prepend sender name (helpful for group texts or when number isn't saved)
+        message_text = f"{params['message']} - {user_name}"
+
         # Send via Twilio
         result = twilio_service.send_sms(
             to=params["recipient_phone"],
-            body=params["message"]
+            body=message_text
         )
 
         # Record in database
@@ -326,7 +372,7 @@ async def execute_sms(params: Dict[str, Any], request_id: int, db: Session) -> D
             external_id=result.get("message_sid"),
             error=result.get("error"),
             sent_at=datetime.utcnow() if result["success"] else None,
-            metadata=result
+            message_metadata=result
         )
         db.add(message)
         db.commit()
@@ -354,11 +400,18 @@ async def execute_email(params: Dict[str, Any], request_id: int, db: Session) ->
 
         gmail_service = get_gmail_service()
 
+        # Get user name to include in email signature
+        user = db.query(User).first()
+        user_name = user.name if user else "User"
+
+        # Add signature to email body
+        body_with_signature = f"{params['body']}\n\n- {user_name}"
+
         # Send via Gmail
         result = gmail_service.send_email(
             to=params["recipient_email"],
             subject=params["subject"],
-            body=params["body"]
+            body=body_with_signature
         )
 
         # Record in database
@@ -373,7 +426,7 @@ async def execute_email(params: Dict[str, Any], request_id: int, db: Session) ->
             external_id=result.get("message_id"),
             error=result.get("error"),
             sent_at=datetime.utcnow() if result["success"] else None,
-            metadata=result
+            message_metadata=result
         )
         db.add(message)
         db.commit()
@@ -406,10 +459,17 @@ async def execute_slack(params: Dict[str, Any], request_id: int, db: Session) ->
         if not recipient:
             return {"success": False, "error": "No channel_id or user_id specified"}
 
+        # Get user name to prepend to message
+        user = db.query(User).first()
+        user_name = user.name if user else "User"
+
+        # Prepend sender name to message so recipient knows who it's from
+        message_text = f"From {user_name}: {params['message']}"
+
         # Send via Slack
         result = slack_service.send_message(
             channel_or_user_id=recipient,
-            text=params["message"]
+            text=message_text
         )
 
         # Record in database
@@ -423,7 +483,7 @@ async def execute_slack(params: Dict[str, Any], request_id: int, db: Session) ->
             external_id=result.get("timestamp"),
             error=result.get("error"),
             sent_at=datetime.utcnow() if result["success"] else None,
-            metadata=result
+            message_metadata=result
         )
         db.add(message)
         db.commit()

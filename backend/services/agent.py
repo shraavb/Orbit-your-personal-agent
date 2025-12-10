@@ -70,6 +70,7 @@ class AgentService:
             verbose=True,
             handle_parsing_errors=True,
             max_iterations=5,
+            return_intermediate_steps=True,  # CRITICAL: Return intermediate steps for action extraction
         )
 
     def process_request(
