@@ -5,13 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from backend.config import settings
-from backend.api import health, voice
+from backend.api import health, voice, contacts
 from backend.models.db import init_db
 from backend.services.asr import get_asr_service
 from backend.services.agent import get_agent_service, init_agent_with_tools
 from backend.services.tts import get_tts_service
 from backend.services.contacts import get_contact_service
-from backend.tools import SendSMSTool, SendEmailTool, SendSlackMessageTool
+from backend.tools import SendSMSTool, SendEmailTool, SendSlackMessageTool, SendWhatsAppMessageTool
 
 
 @asynccontextmanager
@@ -61,12 +61,21 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"Warning: Slack service initialization failed: {e}")
 
+    # Initialize WhatsApp service (uses Twilio)
+    if settings.twilio_account_sid and settings.twilio_auth_token:
+        try:
+            from backend.integrations.whatsapp_service import get_whatsapp_service
+            get_whatsapp_service()
+        except Exception as e:
+            print(f"Warning: WhatsApp service initialization failed: {e}")
+
     # Initialize agent with messaging tools
     print("Loading messaging tools...")
     tools = [
         SendSMSTool(),
         SendEmailTool(),
         SendSlackMessageTool(),
+        SendWhatsAppMessageTool(),
     ]
     init_agent_with_tools(tools)
     print(f"Agent initialized with {len(tools)} tools")
@@ -93,7 +102,7 @@ app = FastAPI(
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],  # Vite and React defaults
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -102,6 +111,9 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(voice.router, prefix="/api", tags=["voice"])
+app.include_router(contacts.router, prefix="/api", tags=["contacts"])
+
+# Note: MCP server runs standalone on port 8001 via run_mcp_server.py
 
 
 @app.get("/")

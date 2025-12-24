@@ -1,0 +1,40 @@
+{
+  "display_information": {
+    "name": "Orbit Personal Agent",
+    "description": "AI-powered personal agent that helps manage communication and tasks",
+    "background_color": "#2c2d30"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Orbit",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "chat:write",
+        "users:read",
+        "users:read.email"
+      ],
+      "user": [
+        "chat:write",
+        "users:read",
+        "users:read.email",
+        "channels:read",
+        "channels:history",
+        "groups:read",
+        "groups:history",
+        "im:read",
+        "im:history",
+        "mpim:read",
+        "mpim:history"
+      ]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

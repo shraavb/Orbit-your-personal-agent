@@ -1,0 +1,10 @@
+{
+  "$schema": "https://github.com/modelcontextprotocol/servers/raw/main/schema.json",
+  "mcpServers": {
+    "orbit-memory": {
+      "type": "http",
+      "url": "http://localhost:8001",
+      "description": "Orbit voice agent memory and context server"
+    }
+  }
+}

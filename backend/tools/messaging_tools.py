@@ -52,12 +52,12 @@ class SendSMSTool(BaseTool):
                 "error_message": f"I couldn't find a contact named '{contact_name}' in your contacts. Could you provide their phone number?"
             })
 
-        # Check if contact has a phone number
-        phone = contact.get("phone")
-        if not phone:
+        # Check if contact has an SMS number
+        sms = contact.get("sms")
+        if not sms:
             return json.dumps({
                 "action_type": "error",
-                "error_message": f"I don't have a phone number for {contact.get('full_name', contact_name)}. Could you provide it?"
+                "error_message": f"I don't have an SMS number for {contact.get('full_name', contact_name)}. Could you provide it?"
             })
 
         # Return action proposal
@@ -65,11 +65,11 @@ class SendSMSTool(BaseTool):
         return json.dumps({
             "action_type": "send_sms",
             "parameters": {
-                "recipient_phone": phone,
+                "recipient_phone": sms,
                 "recipient_name": full_name,
                 "message": message
             },
-            "confirmation_message": f"I'll send an SMS to {full_name} ({phone}): '{message}'. Should I send it?"
+            "confirmation_message": f"I'll send an SMS to {full_name} ({sms}): '{message}'. Should I send it?"
         })
 
     async def _arun(self, contact_name: str, message: str) -> str:
@@ -159,6 +159,10 @@ class SendSlackMessageInput(BaseModel):
         default=False,
         description="Whether this is a channel message (True) or direct message (False)"
     )
+    mentions: Optional[list[str]] = Field(
+        default=None,
+        description="List of contact names to @mention in the message (e.g., ['Anna', 'Diana']). Only works for channel messages."
+    )
 
 
 class SendSlackMessageTool(BaseTool):
@@ -172,11 +176,12 @@ class SendSlackMessageTool(BaseTool):
     description: str = (
         "Prepare a Slack message to send to a user or channel. "
         "This returns a proposal that requires user confirmation before the message is sent. "
-        "Use this when the user wants to send a Slack message to someone or post to a channel."
+        "Use this when the user wants to send a Slack message to someone or post to a channel. "
+        "Supports @mentions - if the user wants to mention specific people, provide their names in the mentions list."
     )
     args_schema: Type[BaseModel] = SendSlackMessageInput
 
-    def _run(self, contact_name: str, message: str, is_channel: bool = False) -> str:
+    def _run(self, contact_name: str, message: str, is_channel: bool = False, mentions: Optional[list[str]] = None) -> str:
         """
         Prepare a Slack message sending proposal.
 
@@ -184,6 +189,7 @@ class SendSlackMessageTool(BaseTool):
             contact_name: Name of the contact or channel
             message: Message text to send
             is_channel: Whether this is a channel message
+            mentions: List of contact names to @mention in the message
 
         Returns:
             JSON string with action proposal
@@ -199,6 +205,22 @@ class SendSlackMessageTool(BaseTool):
                 "action_type": "error",
                 "error_message": f"I couldn't find a contact named '{contact_name}' in your contacts. Could you provide their Slack user ID or channel?"
             })
+
+        # Process mentions if provided
+        mention_tags = []
+        if mentions and is_channel:
+            for mention_name in mentions:
+                mention_contact = contact_service.get_contact(mention_name)
+                if mention_contact and mention_contact.get("slack_user_id"):
+                    user_id = mention_contact["slack_user_id"]
+                    mention_tags.append(f"<@{user_id}>")
+                else:
+                    # Skip mentions we can't resolve
+                    print(f"Warning: Could not resolve mention for '{mention_name}'")
+
+        # Add mentions to the beginning of the message
+        if mention_tags:
+            message = " ".join(mention_tags) + " " + message
 
         # Determine if this is a channel or user message
         if is_channel:
@@ -242,6 +264,75 @@ class SendSlackMessageTool(BaseTool):
                 "confirmation_message": f"I'll send a Slack DM to {full_name}: '{message}'. Should I send it?"
             })
 
-    async def _arun(self, contact_name: str, message: str, is_channel: bool = False) -> str:
+    async def _arun(self, contact_name: str, message: str, is_channel: bool = False, mentions: Optional[list[str]] = None) -> str:
         """Async version (calls sync version)."""
-        return self._run(contact_name, message, is_channel)
+        return self._run(contact_name, message, is_channel, mentions)
+
+
+class SendWhatsAppMessageInput(BaseModel):
+    """Input schema for SendWhatsAppMessageTool."""
+    contact_name: str = Field(description="Name of the contact to send WhatsApp message to (e.g., 'John', 'Sarah')")
+    message: str = Field(description="The WhatsApp message text to send")
+
+
+class SendWhatsAppMessageTool(BaseTool):
+    """
+    Tool for proposing to send a WhatsApp message to a contact.
+
+    Returns a JSON action proposal that requires user confirmation before execution.
+    """
+
+    name: str = "send_whatsapp_message"
+    description: str = (
+        "Prepare a WhatsApp message to send to a contact. "
+        "This returns a proposal that requires user confirmation before the message is sent. "
+        "Use this when the user wants to send a WhatsApp message to someone."
+    )
+    args_schema: Type[BaseModel] = SendWhatsAppMessageInput
+
+    def _run(self, contact_name: str, message: str) -> str:
+        """
+        Prepare a WhatsApp message sending proposal.
+
+        Args:
+            contact_name: Name of the contact
+            message: Message text to send
+
+        Returns:
+            JSON string with action proposal
+        """
+        contact_service = get_contact_service()
+
+        # Look up contact
+        contact = contact_service.get_contact(contact_name)
+
+        if not contact:
+            # Contact not found - ask user for phone number
+            return json.dumps({
+                "action_type": "error",
+                "error_message": f"I couldn't find a contact named '{contact_name}' in your contacts. Could you provide their WhatsApp phone number?"
+            })
+
+        # Check if contact has a WhatsApp phone number (use dedicated whatsapp field)
+        whatsapp = contact.get("whatsapp")
+        if not whatsapp:
+            return json.dumps({
+                "action_type": "error",
+                "error_message": f"I don't have a WhatsApp number for {contact.get('full_name', contact_name)}. Could you provide it?"
+            })
+
+        # Return action proposal
+        full_name = contact.get("full_name", contact_name)
+        return json.dumps({
+            "action_type": "send_whatsapp",
+            "parameters": {
+                "recipient_phone": whatsapp,
+                "recipient_name": full_name,
+                "message": message
+            },
+            "confirmation_message": f"I'll send a WhatsApp message to {full_name} ({whatsapp}): '{message}'. Should I send it?"
+        })
+
+    async def _arun(self, contact_name: str, message: str) -> str:
+        """Async version (calls sync version)."""
+        return self._run(contact_name, message)

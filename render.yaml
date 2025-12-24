@@ -1,0 +1,35 @@
+services:
+  # Backend API
+  - type: web
+    name: orbit-backend
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: orbit-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: WHISPER_MODEL_SIZE
+        value: base
+      - key: WHISPER_DEVICE
+        value: cpu
+      - key: WHISPER_COMPUTE_TYPE
+        value: int8
+
+databases:
+  # PostgreSQL Database
+  - name: orbit-db
+    plan: starter
+    databaseName: orbit
+    user: orbit

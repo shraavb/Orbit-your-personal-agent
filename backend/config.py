@@ -1,5 +1,6 @@
 """Configuration management for Orbit backend."""
 
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
@@ -40,6 +41,7 @@ class Settings(BaseSettings):
 
     slack_bot_token: Optional[str] = None
     slack_app_token: Optional[str] = None
+    slack_user_token: Optional[str] = None
 
     # Whisper ASR
     whisper_model_size: str = "base"  # tiny, base, small, medium, large
@@ -48,6 +50,20 @@ class Settings(BaseSettings):
 
     # Contacts
     contacts_file: str = "backend/data/contacts.json"
+
+    # CORS
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ]
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Get CORS origins from environment or defaults."""
+        env_origins = os.getenv("CORS_ORIGINS", "")
+        if env_origins:
+            return [origin.strip() for origin in env_origins.split(",")]
+        return self.cors_origins
 
 
 # Global settings instance

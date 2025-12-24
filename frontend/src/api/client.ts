@@ -65,7 +65,10 @@ export async function sendVoiceRequest(audioBlob: Blob): Promise<VoiceResponse> 
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.statusText}`);
+    const errorBody = await response.json().catch(() => ({ detail: response.statusText }));
+    const errorMessage = errorBody.detail || errorBody.message || response.statusText;
+    console.error('Voice API Error Response:', errorBody);
+    throw new Error(`Voice API error (${response.status}): ${errorMessage}`);
   }
 
   return response.json();
@@ -100,5 +103,101 @@ export async function healthCheck(): Promise<HealthResponse> {
     throw new Error(`API error: ${response.statusText}`);
   }
 
+  return response.json();
+}
+
+// Contact Types
+export interface Contact {
+  name: string;
+  full_name: string;
+  sms?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  slack_user_id?: string | null;
+  slack_channel?: string | null;
+}
+
+export interface ContactCreate {
+  name: string;
+  full_name: string;
+  sms?: string;
+  whatsapp?: string;
+  email?: string;
+  slack_user_id?: string;
+  slack_channel?: string;
+}
+
+export interface ContactUpdate {
+  full_name?: string;
+  sms?: string;
+  whatsapp?: string;
+  email?: string;
+  slack_user_id?: string;
+  slack_channel?: string;
+}
+
+export interface ContactListResponse {
+  contacts: Contact[];
+  total: number;
+}
+
+// Contact API Functions
+export async function listContacts(): Promise<ContactListResponse> {
+  const response = await fetch(`${API_BASE_URL}/contacts`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch contacts: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function getContact(name: string): Promise<Contact> {
+  const response = await fetch(`${API_BASE_URL}/contacts/${encodeURIComponent(name)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch contact: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function createContact(contact: ContactCreate): Promise<Contact> {
+  const response = await fetch(`${API_BASE_URL}/contacts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(contact),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to create contact');
+  }
+  return response.json();
+}
+
+export async function updateContact(name: string, contact: ContactUpdate): Promise<Contact> {
+  const response = await fetch(`${API_BASE_URL}/contacts/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(contact),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update contact');
+  }
+  return response.json();
+}
+
+export async function deleteContact(name: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/contacts/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to delete contact');
+  }
+}
+
+export async function searchContacts(query: string): Promise<Contact[]> {
+  const response = await fetch(`${API_BASE_URL}/contacts/search/${encodeURIComponent(query)}`);
+  if (!response.ok) {
+    throw new Error(`Failed to search contacts: ${response.statusText}`);
+  }
   return response.json();
 }

@@ -126,7 +126,7 @@ async def process_voice_request(
                     action_type = action_data.get("action_type")
 
                     # Check if this is a messaging action
-                    if action_type in ["send_sms", "send_email", "send_slack"]:
+                    if action_type in ["send_sms", "send_email", "send_slack", "send_whatsapp"]:
                         proposed_action = action_data
                         # Update agent response to include confirmation message
                         confirmation_msg = action_data.get("confirmation_message")
@@ -270,9 +270,19 @@ async def confirm_action(
                             continue
 
                 # Update request with new action
-                db_request.agent_response = agent_result["response"]
+                # Extract text from structured response if needed
+                response_text = agent_result["response"]
+                if isinstance(response_text, list):
+                    if len(response_text) > 0 and isinstance(response_text[0], dict) and 'text' in response_text[0]:
+                        response_text = response_text[0]['text']
+                    elif len(response_text) == 0:
+                        response_text = "Got it!"
+                if not isinstance(response_text, str):
+                    response_text = str(response_text)
+
+                db_request.agent_response = response_text
                 db_request.agent_action = new_proposed_action
-                message = agent_result["response"]
+                message = response_text
             else:
                 # User cancelled
                 db_request.status = RequestStatus.CANCELLED
@@ -331,6 +341,8 @@ async def execute_action(
             result = await execute_email(params, request_id, db)
         elif action_type == "send_slack":
             result = await execute_slack(params, request_id, db)
+        elif action_type == "send_whatsapp":
+            result = await execute_whatsapp(params, request_id, db)
         else:
             return {"success": False, "error": f"Unknown action type: {action_type}"}
 
@@ -459,12 +471,14 @@ async def execute_slack(params: Dict[str, Any], request_id: int, db: Session) ->
         if not recipient:
             return {"success": False, "error": "No channel_id or user_id specified"}
 
-        # Get user name to prepend to message
-        user = db.query(User).first()
-        user_name = user.name if user else "User"
-
-        # Prepend sender name to message so recipient knows who it's from
-        message_text = f"From {user_name}: {params['message']}"
+        # If using user token, send message directly (appears from user)
+        # If using bot token, prepend sender name so recipient knows who it's from
+        if slack_service.token_type == "user":
+            message_text = params['message']
+        else:
+            user = db.query(User).first()
+            user_name = user.name if user else "User"
+            message_text = f"From {user_name}: {params['message']}"
 
         # Send via Slack
         result = slack_service.send_message(
@@ -502,3 +516,55 @@ async def execute_slack(params: Dict[str, Any], request_id: int, db: Session) ->
     except Exception as e:
         print(f"Slack execution error: {str(e)}")
         return {"success": False, "error": f"Slack service error: {str(e)}"}
+
+
+async def execute_whatsapp(params: Dict[str, Any], request_id: int, db: Session) -> Dict[str, Any]:
+    """Execute WhatsApp message sending."""
+    try:
+        from backend.integrations.whatsapp_service import get_whatsapp_service
+
+        whatsapp_service = get_whatsapp_service()
+
+        # Get user name to prepend to message
+        user = db.query(User).first()
+        user_name = user.name if user else "User"
+
+        # Prepend sender name to message so recipient knows who it's from
+        message_text = f"From {user_name}: {params['message']}"
+
+        # Send via WhatsApp
+        result = whatsapp_service.send_message(
+            to_phone=params["recipient_phone"],
+            message=message_text
+        )
+
+        # Record in database
+        message = Message(
+            request_id=request_id,
+            message_type=MessageType.WHATSAPP,
+            recipient=params["recipient_phone"],
+            recipient_name=params.get("recipient_name"),
+            body=params["message"],
+            status="sent" if result["success"] else "failed",
+            external_id=result.get("message_sid"),
+            error=result.get("error"),
+            sent_at=datetime.utcnow() if result["success"] else None,
+            message_metadata=result
+        )
+        db.add(message)
+        db.commit()
+
+        if result["success"]:
+            return {
+                "success": True,
+                "message": f"WhatsApp message sent to {params.get('recipient_name', params['recipient_phone'])}!"
+            }
+        else:
+            return {
+                "success": False,
+                "error": result.get("error", "Failed to send WhatsApp message")
+            }
+
+    except Exception as e:
+        print(f"WhatsApp execution error: {str(e)}")
+        return {"success": False, "error": f"WhatsApp service error: {str(e)}"}

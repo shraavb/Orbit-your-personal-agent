@@ -114,3 +114,41 @@ class RequestHistoryItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Contact Management Schemas
+class ContactBase(BaseModel):
+    """Base contact schema."""
+    full_name: str = Field(..., min_length=1, max_length=100)
+    sms: Optional[str] = Field(None, pattern=r"^\+?[1-9]\d{1,14}$")  # E.164 format
+    whatsapp: Optional[str] = Field(None, pattern=r"^\+?[1-9]\d{1,14}$")
+    email: Optional[EmailStr] = None
+    slack_user_id: Optional[str] = Field(None, max_length=50)
+    slack_channel: Optional[str] = Field(None, max_length=100)
+
+
+class ContactCreate(ContactBase):
+    """Schema for creating a contact."""
+    name: str = Field(..., min_length=1, max_length=50,
+                      description="Short name/alias for voice commands (e.g., 'Mom', 'John')")
+
+
+class ContactUpdate(BaseModel):
+    """Schema for updating a contact (all fields optional)."""
+    full_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    sms: Optional[str] = Field(None, pattern=r"^\+?[1-9]\d{1,14}$")
+    whatsapp: Optional[str] = Field(None, pattern=r"^\+?[1-9]\d{1,14}$")
+    email: Optional[EmailStr] = None
+    slack_user_id: Optional[str] = Field(None, max_length=50)
+    slack_channel: Optional[str] = Field(None, max_length=100)
+
+
+class ContactResponse(ContactBase):
+    """Schema for contact response."""
+    name: str
+
+
+class ContactListResponse(BaseModel):
+    """Schema for listing contacts."""
+    contacts: list[ContactResponse]
+    total: int

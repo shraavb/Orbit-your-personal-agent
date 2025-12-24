@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import VoiceButton from './components/VoiceButton';
 import Confirmation from './components/Confirmation';
 import History from './components/History';
+import OnboardingWizard from './components/OnboardingWizard';
+import SettingsModal from './components/SettingsModal';
 import { sendVoiceRequest, confirmAction, VoiceResponse } from './api/client';
 
 interface HistoryItem {
@@ -18,7 +20,17 @@ function App() {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [audioInitialized, setAudioInitialized] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Check onboarding status on mount
+  useEffect(() => {
+    const onboardingComplete = localStorage.getItem('orbit_onboarding_complete');
+    if (!onboardingComplete) {
+      setShowOnboarding(true);
+    }
+  }, []);
 
   // Initialize audio on first user interaction
   const initializeAudio = () => {
@@ -69,7 +81,9 @@ function App() {
       }
     } catch (err) {
       console.error('Error processing voice request:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      console.log('Full error details:', err);
+      setError(`${errorMessage} - Check console (F12) for details`);
     } finally {
       setIsProcessing(false);
     }
@@ -115,11 +129,32 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      {/* Onboarding Wizard */}
+      {showOnboarding && (
+        <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
+      )}
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
-        <header className="text-center mb-12">
+        <header className="text-center mb-12 relative">
+          {/* Settings Icon (top right) */}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="absolute top-0 right-0 p-2 text-gray-600 hover:text-gray-900 transition-colors"
+            title="Settings"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Orbit</h1>
           <p className="text-gray-600">Your Personal Voice Agent</p>
+          <p className="text-sm text-gray-500 mt-2 italic">Try saying: "Hi Orbit, can you hear me?"</p>
         </header>
 
         {/* Main Content */}
@@ -191,7 +226,7 @@ function App() {
               {currentResponse.tts_audio_url && (
                 <button
                   className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                  onClick={() => playAudio(currentResponse.tts_audio_url)}
+                  onClick={() => currentResponse.tts_audio_url && playAudio(currentResponse.tts_audio_url)}
                 >
                   🔊 Replay Audio
                 </button>

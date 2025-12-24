@@ -1,0 +1,20 @@
+{
+  "example": {
+    "full_name": "Example Person",
+    "sms": "+15551234567",
+    "whatsapp": "+15551234567",
+    "email": "example@example.com",
+    "slack_user_id": "U1234567890",
+    "slack_channel": "#general"
+  },
+  "mom": {
+    "full_name": "Your Mother",
+    "email": "mom@example.com",
+    "sms": "+15559876543"
+  },
+  "dad": {
+    "full_name": "Your Father",
+    "email": "dad@example.com",
+    "sms": "+15559876544"
+  }
+}

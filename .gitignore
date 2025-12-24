@@ -58,9 +58,15 @@ yarn-error.log*
 frontend/dist/
 frontend/build/
 
-# Credentials
+# Credentials and Sensitive Data
 backend/data/gmail_credentials.json
 backend/data/gmail_token.json
+backend/data/contacts.json
+backend/data/contacts.json.encrypted
+backend/data/*.encrypted
+backend/data/encryption_key.key
+.encryption_key
+*.key
 
 # Audio files
 *.wav

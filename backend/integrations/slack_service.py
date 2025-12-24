@@ -16,21 +16,29 @@ class SlackService:
     """
 
     def __init__(self):
-        """Initialize Slack client with bot token from settings."""
-        if not settings.slack_bot_token:
+        """Initialize Slack client with user token (preferred) or bot token from settings."""
+        # Prefer user token for personal messages, fall back to bot token
+        if settings.slack_user_token:
+            token = settings.slack_user_token
+            token_type = "user"
+        elif settings.slack_bot_token:
+            token = settings.slack_bot_token
+            token_type = "bot"
+        else:
             raise ValueError(
-                "Slack bot token not configured. "
-                "Please set SLACK_BOT_TOKEN in .env"
+                "No Slack token configured. "
+                "Please set SLACK_USER_TOKEN or SLACK_BOT_TOKEN in .env"
             )
 
-        self.client = WebClient(token=settings.slack_bot_token)
+        self.client = WebClient(token=token)
+        self.token_type = token_type
 
         # Verify token by testing auth
         try:
             auth_response = self.client.auth_test()
-            self.bot_user_id = auth_response["user_id"]
+            self.user_id = auth_response["user_id"]
             self.team_name = auth_response["team"]
-            print(f"Slack service initialized for team: {self.team_name} (bot: {self.bot_user_id})")
+            print(f"Slack service initialized for team: {self.team_name} ({token_type} token, user: {self.user_id})")
         except SlackApiError as e:
             raise ValueError(f"Failed to authenticate with Slack: {e.response['error']}")
 
