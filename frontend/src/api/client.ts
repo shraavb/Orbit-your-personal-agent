@@ -4,16 +4,34 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
+export interface CharacterAlignment {
+  characters: string[];
+  character_start_times_seconds: number[];
+  character_end_times_seconds: number[];
+}
+
+export interface ProposedAction {
+  action_type: 'send_sms' | 'send_email' | 'send_whatsapp' | 'send_slack';
+  parameters: {
+    recipient_name?: string;      // For all actions
+    recipient_phone?: string;     // For SMS/WhatsApp
+    message: string;               // For all actions
+    subject?: string;              // For email
+    body?: string;                 // For email
+    user_id?: string;              // For Slack DM
+    channel_id?: string;           // For Slack channel
+    is_channel?: boolean;          // For Slack
+  };
+  confirmation_message: string;
+}
+
 export interface VoiceResponse {
   request_id: number;
   transcript: string;
   agent_response: string;
   tts_audio_url?: string;
-  proposed_action?: {
-    action_type: string;
-    parameters: Record<string, any>;
-    confirmation_message: string;
-  };
+  tts_alignment?: CharacterAlignment;
+  proposed_action?: ProposedAction;
   status: string;
 }
 
@@ -28,6 +46,7 @@ export interface ConfirmActionResponse {
   status: string;
   message: string;
   tts_audio_url?: string;
+  tts_alignment?: CharacterAlignment;
 }
 
 export interface HealthResponse {
@@ -68,7 +87,8 @@ export async function sendVoiceRequest(audioBlob: Blob): Promise<VoiceResponse> 
     const errorBody = await response.json().catch(() => ({ detail: response.statusText }));
     const errorMessage = errorBody.detail || errorBody.message || response.statusText;
     console.error('Voice API Error Response:', errorBody);
-    throw new Error(`Voice API error (${response.status}): ${errorMessage}`);
+    // Throw just the plain error message - no "Voice API error (XXX):" prefix
+    throw new Error(errorMessage);
   }
 
   return response.json();

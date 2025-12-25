@@ -31,6 +31,13 @@ class VoiceRequest(BaseModel):
     audio_format: str = "webm"  # webm, mp3, wav
 
 
+class CharacterAlignment(BaseModel):
+    """Character-level timing alignment for lip-sync."""
+    characters: list[str]
+    character_start_times_seconds: list[float]
+    character_end_times_seconds: list[float]
+
+
 class AgentAction(BaseModel):
     """Proposed action from the agent."""
     action_type: str  # "send_message", "schedule_event", etc.
@@ -44,6 +51,7 @@ class VoiceResponse(BaseModel):
     transcript: str
     agent_response: str
     tts_audio_url: Optional[str] = None
+    tts_alignment: Optional[CharacterAlignment] = None
     proposed_action: Optional[AgentAction] = None
     status: RequestStatus
 
@@ -62,6 +70,7 @@ class ConfirmActionResponse(BaseModel):
     status: RequestStatus
     message: str
     tts_audio_url: Optional[str] = None
+    tts_alignment: Optional[CharacterAlignment] = None
 
 
 # Message Schemas

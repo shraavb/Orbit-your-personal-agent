@@ -10,12 +10,14 @@ interface ConfirmationProps {
   requestId: number;
   proposedAction: ProposedAction;
   onConfirm: (confirmed: boolean, modification?: string) => void;
+  isProcessing?: boolean;
 }
 
 export default function Confirmation({
   requestId,
   proposedAction,
   onConfirm,
+  isProcessing = false,
 }: ConfirmationProps) {
   const [modification, setModification] = useState('');
   const [showModify, setShowModify] = useState(false);
@@ -100,14 +102,16 @@ export default function Confirmation({
 
               <div className="flex gap-2">
                 <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleModify}
+                  disabled={isProcessing}
                 >
-                  Save Changes
+                  {isProcessing ? 'Processing...' : 'Save Changes'}
                 </button>
                 <button
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
                   onClick={() => setShowModify(false)}
+                  disabled={isProcessing}
                 >
                   Cancel
                 </button>
@@ -126,14 +130,16 @@ export default function Confirmation({
               />
               <div className="flex gap-2">
                 <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleModify}
+                  disabled={isProcessing}
                 >
-                  Submit Change
+                  {isProcessing ? 'Processing...' : 'Submit Change'}
                 </button>
                 <button
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
                   onClick={() => setShowModify(false)}
+                  disabled={isProcessing}
                 >
                   Cancel
                 </button>
@@ -144,20 +150,23 @@ export default function Confirmation({
       ) : (
         <div className="flex gap-2 mt-4">
           <button
-            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleConfirm}
+            disabled={isProcessing}
           >
-            Confirm
+            {isProcessing ? 'Processing...' : 'Confirm'}
           </button>
           <button
-            className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+            className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium disabled:opacity-50"
             onClick={() => setShowModify(true)}
+            disabled={isProcessing}
           >
             Modify
           </button>
           <button
-            className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+            className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50"
             onClick={handleCancel}
+            disabled={isProcessing}
           >
             Cancel
           </button>

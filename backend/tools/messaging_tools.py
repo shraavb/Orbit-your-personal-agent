@@ -11,7 +11,7 @@ from backend.services.contacts import get_contact_service
 class SendSMSInput(BaseModel):
     """Input schema for SendSMSTool."""
     contact_name: str = Field(description="Name of the contact to send SMS to (e.g., 'John', 'Sarah')")
-    message: str = Field(description="The text message to send")
+    message: str = Field(default="", description="The text message to send (optional - will ask if not provided)")
 
 
 class SendSMSTool(BaseTool):
@@ -29,7 +29,7 @@ class SendSMSTool(BaseTool):
     )
     args_schema: Type[BaseModel] = SendSMSInput
 
-    def _run(self, contact_name: str, message: str) -> str:
+    def _run(self, contact_name: str, message: str = "") -> str:
         """
         Prepare an SMS sending proposal.
 
@@ -60,7 +60,25 @@ class SendSMSTool(BaseTool):
                 "error_message": f"I don't have an SMS number for {contact.get('full_name', contact_name)}. Could you provide it?"
             })
 
-        # Return action proposal
+        # NEW: Check for missing message
+        if not message or message.strip() == "":
+            full_name = contact.get("full_name", contact_name)
+            return json.dumps({
+                "action_type": "missing_params",
+                "parameters": {
+                    "contact_name": contact_name,
+                    "recipient_phone": sms,
+                    "recipient_name": full_name,
+                },
+                "missing_params": ["message"],
+                "collected_params": {
+                    "contact_name": contact_name,
+                    "message": None
+                },
+                "question": self._get_next_question("message"),
+            })
+
+        # All params present - return action proposal
         full_name = contact.get("full_name", contact_name)
         return json.dumps({
             "action_type": "send_sms",
@@ -72,6 +90,13 @@ class SendSMSTool(BaseTool):
             "confirmation_message": f"I'll send an SMS to {full_name} ({sms}): '{message}'. Should I send it?"
         })
 
+    def _get_next_question(self, param_name: str) -> str:
+        """Generate question for missing parameter."""
+        questions = {
+            "message": "What should the message say?",
+        }
+        return questions.get(param_name, f"What should the {param_name} be?")
+
     async def _arun(self, contact_name: str, message: str) -> str:
         """Async version (calls sync version)."""
         return self._run(contact_name, message)
@@ -80,8 +105,8 @@ class SendSMSTool(BaseTool):
 class SendEmailInput(BaseModel):
     """Input schema for SendEmailTool."""
     contact_name: str = Field(description="Name of the contact to send email to (e.g., 'John', 'Team')")
-    subject: str = Field(description="Email subject line")
-    body: str = Field(description="Email body text")
+    subject: str = Field(default="", description="Email subject line (optional - will ask if not provided)")
+    body: str = Field(default="", description="Email body text (optional - will ask if not provided)")
 
 
 class SendEmailTool(BaseTool):
@@ -99,7 +124,7 @@ class SendEmailTool(BaseTool):
     )
     args_schema: Type[BaseModel] = SendEmailInput
 
-    def _run(self, contact_name: str, subject: str, body: str) -> str:
+    def _run(self, contact_name: str, subject: str = "", body: str = "") -> str:
         """
         Prepare an email sending proposal.
 
@@ -131,7 +156,32 @@ class SendEmailTool(BaseTool):
                 "error_message": f"I don't have an email address for {contact.get('full_name', contact_name)}. Could you provide it?"
             })
 
-        # Return action proposal
+        # NEW: Check for missing required parameters
+        missing = []
+        if not subject or subject.strip() == "":
+            missing.append("subject")
+        if not body or body.strip() == "":
+            missing.append("body")
+
+        if missing:
+            full_name = contact.get("full_name", contact_name)
+            return json.dumps({
+                "action_type": "missing_params",
+                "parameters": {
+                    "contact_name": contact_name,
+                    "recipient_email": email,
+                    "recipient_name": full_name,
+                },
+                "missing_params": missing,
+                "collected_params": {
+                    "contact_name": contact_name,
+                    "subject": subject if subject else None,
+                    "body": body if body else None
+                },
+                "question": self._get_next_question(missing[0]),
+            })
+
+        # All params present - return normal confirmation
         full_name = contact.get("full_name", contact_name)
         return json.dumps({
             "action_type": "send_email",
@@ -144,6 +194,14 @@ class SendEmailTool(BaseTool):
             "confirmation_message": f"I'll send an email to {full_name} ({email}) with subject '{subject}'. Should I send it?"
         })
 
+    def _get_next_question(self, param_name: str) -> str:
+        """Generate question for missing parameter."""
+        questions = {
+            "subject": "What should the subject line be?",
+            "body": "What should the email say?",
+        }
+        return questions.get(param_name, f"What should the {param_name} be?")
+
     async def _arun(self, contact_name: str, subject: str, body: str) -> str:
         """Async version (calls sync version)."""
         return self._run(contact_name, subject, body)
@@ -154,7 +212,7 @@ class SendSlackMessageInput(BaseModel):
     contact_name: str = Field(
         description="Name of the contact or channel to send Slack message to (e.g., 'John', 'Team')"
     )
-    message: str = Field(description="The Slack message text to send")
+    message: str = Field(default="", description="The Slack message text to send (optional - will ask if not provided)")
     is_channel: bool = Field(
         default=False,
         description="Whether this is a channel message (True) or direct message (False)"
@@ -181,7 +239,7 @@ class SendSlackMessageTool(BaseTool):
     )
     args_schema: Type[BaseModel] = SendSlackMessageInput
 
-    def _run(self, contact_name: str, message: str, is_channel: bool = False, mentions: Optional[list[str]] = None) -> str:
+    def _run(self, contact_name: str, message: str = "", is_channel: bool = False, mentions: Optional[list[str]] = None) -> str:
         """
         Prepare a Slack message sending proposal.
 
@@ -204,6 +262,25 @@ class SendSlackMessageTool(BaseTool):
             return json.dumps({
                 "action_type": "error",
                 "error_message": f"I couldn't find a contact named '{contact_name}' in your contacts. Could you provide their Slack user ID or channel?"
+            })
+
+        # NEW: Check for missing message (before processing mentions)
+        if not message or message.strip() == "":
+            full_name = contact.get("full_name", contact_name)
+            return json.dumps({
+                "action_type": "missing_params",
+                "parameters": {
+                    "contact_name": contact_name,
+                    "recipient_name": full_name,
+                    "is_channel": is_channel,
+                },
+                "missing_params": ["message"],
+                "collected_params": {
+                    "contact_name": contact_name,
+                    "is_channel": is_channel,
+                    "message": None
+                },
+                "question": self._get_next_question("message"),
             })
 
         # Process mentions if provided
@@ -264,6 +341,13 @@ class SendSlackMessageTool(BaseTool):
                 "confirmation_message": f"I'll send a Slack DM to {full_name}: '{message}'. Should I send it?"
             })
 
+    def _get_next_question(self, param_name: str) -> str:
+        """Generate question for missing parameter."""
+        questions = {
+            "message": "What should the message say?",
+        }
+        return questions.get(param_name, f"What should the {param_name} be?")
+
     async def _arun(self, contact_name: str, message: str, is_channel: bool = False, mentions: Optional[list[str]] = None) -> str:
         """Async version (calls sync version)."""
         return self._run(contact_name, message, is_channel, mentions)
@@ -272,7 +356,7 @@ class SendSlackMessageTool(BaseTool):
 class SendWhatsAppMessageInput(BaseModel):
     """Input schema for SendWhatsAppMessageTool."""
     contact_name: str = Field(description="Name of the contact to send WhatsApp message to (e.g., 'John', 'Sarah')")
-    message: str = Field(description="The WhatsApp message text to send")
+    message: str = Field(default="", description="The WhatsApp message text to send (optional - will ask if not provided)")
 
 
 class SendWhatsAppMessageTool(BaseTool):
@@ -290,7 +374,7 @@ class SendWhatsAppMessageTool(BaseTool):
     )
     args_schema: Type[BaseModel] = SendWhatsAppMessageInput
 
-    def _run(self, contact_name: str, message: str) -> str:
+    def _run(self, contact_name: str, message: str = "") -> str:
         """
         Prepare a WhatsApp message sending proposal.
 
@@ -321,7 +405,25 @@ class SendWhatsAppMessageTool(BaseTool):
                 "error_message": f"I don't have a WhatsApp number for {contact.get('full_name', contact_name)}. Could you provide it?"
             })
 
-        # Return action proposal
+        # NEW: Check for missing message
+        if not message or message.strip() == "":
+            full_name = contact.get("full_name", contact_name)
+            return json.dumps({
+                "action_type": "missing_params",
+                "parameters": {
+                    "contact_name": contact_name,
+                    "recipient_phone": whatsapp,
+                    "recipient_name": full_name,
+                },
+                "missing_params": ["message"],
+                "collected_params": {
+                    "contact_name": contact_name,
+                    "message": None
+                },
+                "question": self._get_next_question("message"),
+            })
+
+        # All params present - return action proposal
         full_name = contact.get("full_name", contact_name)
         return json.dumps({
             "action_type": "send_whatsapp",
@@ -332,6 +434,13 @@ class SendWhatsAppMessageTool(BaseTool):
             },
             "confirmation_message": f"I'll send a WhatsApp message to {full_name} ({whatsapp}): '{message}'. Should I send it?"
         })
+
+    def _get_next_question(self, param_name: str) -> str:
+        """Generate question for missing parameter."""
+        questions = {
+            "message": "What should the message say?",
+        }
+        return questions.get(param_name, f"What should the {param_name} be?")
 
     async def _arun(self, contact_name: str, message: str) -> str:
         """Async version (calls sync version)."""

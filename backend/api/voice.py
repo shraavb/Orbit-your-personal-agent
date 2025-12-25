@@ -25,6 +25,41 @@ from backend.services.contacts import get_contact_service
 router = APIRouter()
 
 
+def _build_followup_input(conversation_state: Dict, user_answer: str) -> str:
+    """
+    Build context-aware input when user is answering a question.
+
+    Args:
+        conversation_state: Current conversation state with collected params
+        user_answer: User's voice response
+
+    Returns:
+        Formatted input string with context for the agent
+    """
+    original = conversation_state.get("original_transcript", "")
+    collected = conversation_state.get("collected_params", {})
+    missing = conversation_state.get("missing_params", [])
+
+    # Get current parameter being answered
+    current_param = missing[0] if missing else None
+
+    if current_param:
+        # Update collected params with user's answer
+        collected[current_param] = user_answer
+        remaining = missing[1:]
+
+        if remaining:
+            # More questions needed - build contextual prompt
+            params_str = ", ".join([f"{k}='{v}'" for k, v in collected.items() if v])
+            return f"Continue request: {original}. User provided {current_param}: {user_answer}. Parameters so far: {params_str}"
+        else:
+            # All params collected - final tool call
+            params_str = ", ".join([f"{k}='{v}'" for k, v in collected.items() if v])
+            return f"Complete request: {original}. All parameters collected: {params_str}"
+
+    return user_answer
+
+
 @router.post("/voice", response_model=VoiceResponse, status_code=status.HTTP_200_OK)
 async def process_voice_request(
     request: VoiceRequest,
@@ -67,9 +102,29 @@ async def process_voice_request(
                 detail="Could not transcribe audio. Please speak clearly and try again."
             )
 
-        # Step 2: Get recent conversation history (last 10 messages)
+        # Step 2: Check for active conversation state (multi-turn questioning)
+        user = db.query(User).first()
+        recent_request = db.query(RequestModel).filter(
+            RequestModel.user_id == user.id if user else None
+        ).order_by(RequestModel.created_at.desc()).first()
+
+        conversation_state = None
+        if recent_request and recent_request.request_metadata:
+            conv_state = recent_request.request_metadata.get("conversation_state")
+            # Only use if within last 5 minutes and in questioning mode
+            if conv_state and conv_state.get("mode") == "questioning":
+                age_seconds = (datetime.utcnow() - recent_request.created_at).total_seconds()
+                if age_seconds < 300:  # 5 minutes
+                    conversation_state = conv_state
+
+        # Step 3: Build context-aware input if in questioning mode
+        user_input = transcript
+        if conversation_state:
+            user_input = _build_followup_input(conversation_state, transcript)
+
+        # Step 4: Get recent conversation history (last 10 messages)
         recent_requests = db.query(RequestModel).filter(
-            RequestModel.user_id == (db.query(User).first().id if db.query(User).first() else None)
+            RequestModel.user_id == (user.id if user else None)
         ).order_by(RequestModel.created_at.desc()).limit(10).all()
 
         # Build chat history in reverse chronological order
@@ -80,9 +135,9 @@ async def process_voice_request(
             if req.agent_response:
                 chat_history.append({"role": "assistant", "content": req.agent_response})
 
-        # Process through agent with conversation history
+        # Step 5: Process through agent with conversation history
         agent_result = agent_service.process_request(
-            user_input=transcript,
+            user_input=user_input,
             chat_history=chat_history,
             metadata={
                 "tags": ["voice_request"],
@@ -91,9 +146,21 @@ async def process_voice_request(
         )
 
         if not agent_result["success"]:
+            # Extract user-friendly error message
+            error_info = agent_result.get('error', {})
+            error_message = "I couldn't process your request. Please try again."
+
+            if isinstance(error_info, dict):
+                # Try to extract meaningful message from error dict
+                error_message = error_info.get('message', error_message)
+            elif isinstance(error_info, str):
+                error_message = error_info
+
+            print(f"Agent processing failed: {error_info}")
+
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Agent error: {agent_result.get('error', 'Unknown error')}"
+                detail=error_message
             )
 
         agent_response = agent_result["response"]
@@ -110,12 +177,15 @@ async def process_voice_request(
         if not isinstance(agent_response, str):
             agent_response = str(agent_response)
 
-        # Step 3: Generate TTS
-        tts_audio_base64 = await tts_service.text_to_speech_base64(agent_response)
-        tts_audio_url = f"data:audio/mp3;base64,{tts_audio_base64}"
+        # Step 3: Generate TTS with timestamps
+        tts_result = await tts_service.text_to_speech_with_timestamps(agent_response)
+        tts_audio_url = f"data:audio/mp3;base64,{tts_result['audio_base64']}"
+        tts_alignment = tts_result.get('alignment')
 
-        # Step 4: Extract proposed action from agent intermediate steps
+        # Step 6: Extract proposed action and detect questioning mode
         proposed_action = None
+        new_conversation_state = None
+
         for step in agent_result.get("intermediate_steps", []):
             # Each step is a tuple: (AgentAction, observation)
             agent_action, observation = step
@@ -125,32 +195,57 @@ async def process_voice_request(
                     action_data = json.loads(observation)
                     action_type = action_data.get("action_type")
 
+                    # NEW: Check if tool detected missing parameters
+                    if action_type == "missing_params":
+                        # Enter questioning mode
+                        missing = action_data.get("missing_params", [])
+                        collected = action_data.get("collected_params", {})
+                        question = action_data.get("question")
+
+                        new_conversation_state = {
+                            "mode": "questioning",
+                            "action_type": action_data.get("parameters", {}).get("action_type", "unknown"),
+                            "collected_params": collected,
+                            "missing_params": missing,
+                            "current_question": question,
+                            "original_transcript": transcript if not conversation_state else conversation_state.get("original_transcript"),
+                        }
+
+                        # Override response with question
+                        agent_response = question
+                        # Regenerate TTS with question
+                        tts_result = await tts_service.text_to_speech_with_timestamps(agent_response)
+                        tts_audio_url = f"data:audio/mp3;base64,{tts_result['audio_base64']}"
+                        tts_alignment = tts_result.get('alignment')
+                        break
+
                     # Check if this is a messaging action
-                    if action_type in ["send_sms", "send_email", "send_slack", "send_whatsapp"]:
+                    elif action_type in ["send_sms", "send_email", "send_slack", "send_whatsapp"]:
                         proposed_action = action_data
                         # Update agent response to include confirmation message
                         confirmation_msg = action_data.get("confirmation_message")
                         if confirmation_msg:
                             agent_response = confirmation_msg
                             # Regenerate TTS with confirmation message
-                            tts_audio_base64 = await tts_service.text_to_speech_base64(agent_response)
-                            tts_audio_url = f"data:audio/mp3;base64,{tts_audio_base64}"
+                            tts_result = await tts_service.text_to_speech_with_timestamps(agent_response)
+                            tts_audio_url = f"data:audio/mp3;base64,{tts_result['audio_base64']}"
+                            tts_alignment = tts_result.get('alignment')
                         break
                     elif action_type == "error":
                         # Tool returned an error (e.g., contact not found)
                         error_msg = action_data.get("error_message", "An error occurred")
                         agent_response = error_msg
                         # Regenerate TTS with error message
-                        tts_audio_base64 = await tts_service.text_to_speech_base64(agent_response)
-                        tts_audio_url = f"data:audio/mp3;base64,{tts_audio_base64}"
+                        tts_result = await tts_service.text_to_speech_with_timestamps(agent_response)
+                        tts_audio_url = f"data:audio/mp3;base64,{tts_result['audio_base64']}"
+                        tts_alignment = tts_result.get('alignment')
                         break
                 except (json.JSONDecodeError, ValueError):
                     # Not a valid JSON observation, continue
                     continue
 
-        # Step 5: Store in database
+        # Step 7: Store in database
         # Get or create default user (single user for MVP)
-        user = db.query(User).first()
         if not user:
             user = User(
                 name="Default User",
@@ -170,6 +265,7 @@ async def process_voice_request(
             request_metadata={
                 "run_id": agent_result.get("run_id"),
                 "audio_format": request.audio_format,
+                "conversation_state": new_conversation_state,  # NEW: Store conversation state
             }
         )
         db.add(db_request)
@@ -182,6 +278,7 @@ async def process_voice_request(
             transcript=transcript,
             agent_response=agent_response,
             tts_audio_url=tts_audio_url,
+            tts_alignment=tts_alignment,
             status=RequestStatus.PROCESSING,
             proposed_action=proposed_action,
         )
@@ -290,16 +387,18 @@ async def confirm_action(
 
         db.commit()
 
-        # Generate TTS for the response
+        # Generate TTS for the response with timestamps
         tts_service = get_tts_service()
-        tts_audio_base64 = await tts_service.text_to_speech_base64(message)
-        tts_audio_url = f"data:audio/mp3;base64,{tts_audio_base64}"
+        tts_result = await tts_service.text_to_speech_with_timestamps(message)
+        tts_audio_url = f"data:audio/mp3;base64,{tts_result['audio_base64']}"
+        tts_alignment = tts_result.get('alignment')
 
         return ConfirmActionResponse(
             request_id=db_request.id,
             status=db_request.status,
             message=message,
-            tts_audio_url=tts_audio_url
+            tts_audio_url=tts_audio_url,
+            tts_alignment=tts_alignment
         )
 
     except HTTPException:

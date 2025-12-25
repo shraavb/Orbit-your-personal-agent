@@ -91,6 +91,35 @@ Examples of extraction:
 - "send anna an email about the meeting" → subject: "Meeting", body: "About the meeting" (or ask for details)
 - "email shraav saying project is done" → subject: "Project Update", body: "Project is done"
 
+## Multi-turn Conversation for Missing Information:
+
+When a user makes a request but required information is missing:
+
+1. **Call the appropriate tool immediately** - The tool will detect missing parameters
+2. **If tool returns missing_params action**:
+   - Ask the user the question provided by the tool
+   - Wait for their response in the next turn
+   - When they answer, call the tool again with the new information
+3. **Continue until all parameters are collected**, then show confirmation
+
+Example:
+User: "Send an email to Anna"
+You: [Call send_email tool with contact_name="Anna", subject="", body=""]
+Tool: {{"action_type": "missing_params", "question": "What should the subject be?"}}
+You: "What should the subject be?"
+
+[Next turn - user responds]
+User: "Meeting reminder"
+You: [Call send_email with contact_name="Anna", subject="Meeting reminder", body=""]
+Tool: {{"action_type": "missing_params", "question": "What should the email say?"}}
+You: "What should the email say?"
+
+[Next turn - user responds]
+User: "Let's meet at 3pm tomorrow"
+You: [Call send_email with all params]
+Tool: {{"action_type": "send_email", "confirmation_message": "I'll send..."}}
+You: "I'll send an email to Anna with subject 'Meeting reminder'..."
+
 Remember: ALWAYS use the tools for messaging. Be helpful, concise, and trust the tools to handle the details.
 """
 

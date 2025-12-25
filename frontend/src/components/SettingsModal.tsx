@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Contact, listContacts, createContact, updateContact, deleteContact } from '../api/client';
 import ContactForm from './ContactForm';
+import ContactDetails from './ContactDetails';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -85,17 +86,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-none sm:rounded-lg shadow-xl max-w-3xl w-full h-full sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">
+        <div className="p-4 sm:p-6 border-b flex items-center justify-between">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
             {currentView === 'list' && 'Settings'}
             {currentView === 'add' && 'Add Contact'}
             {currentView === 'edit' && 'Edit Contact'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -115,17 +116,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {currentView === 'list' && (
             <div>
               {/* Search & Add Button */}
-              <div className="mb-6 flex gap-3">
+              <div className="mb-6 flex flex-col sm:flex-row gap-3">
                 <input
                   type="text"
                   placeholder="Search contacts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <button
                   onClick={() => setCurrentView('add')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                  className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap min-h-[44px]"
                 >
                   + Add Contact
                 </button>
@@ -178,13 +179,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           </button>
                         </div>
                       </div>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        {contact.sms && <div>SMS: {contact.sms}</div>}
-                        {contact.whatsapp && <div>WhatsApp: {contact.whatsapp}</div>}
-                        {contact.email && <div>Email: {contact.email}</div>}
-                        {contact.slack_user_id && <div>Slack: {contact.slack_user_id}</div>}
-                        {contact.slack_channel && <div>Channel: {contact.slack_channel}</div>}
-                      </div>
+                      <ContactDetails
+                        contactName={contact.name}
+                        sms={contact.sms}
+                        whatsapp={contact.whatsapp}
+                        email={contact.email}
+                        slack_user_id={contact.slack_user_id}
+                        slack_channel={contact.slack_channel}
+                      />
                     </div>
                   ))}
                 </div>
