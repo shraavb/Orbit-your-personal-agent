@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from backend.config import settings
-from backend.api import health, voice, contacts
+from backend.api import health, voice, contacts, user
 from backend.models.db import init_db
 from backend.services.asr import get_asr_service
 from backend.services.agent import get_agent_service, init_agent_with_tools
@@ -112,6 +112,7 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(voice.router, prefix="/api", tags=["voice"])
 app.include_router(contacts.router, prefix="/api", tags=["contacts"])
+app.include_router(user.router, prefix="/api", tags=["user"])
 
 # Note: MCP server runs standalone on port 8001 via run_mcp_server.py
 

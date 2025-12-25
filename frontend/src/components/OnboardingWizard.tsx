@@ -1,16 +1,34 @@
 import { useState } from 'react';
-import { Contact, createContact } from '../api/client';
+import { Contact, createContact, updateUser } from '../api/client';
 import ContactForm from './ContactForm';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-type OnboardingStep = 'welcome' | 'add-contact' | 'complete';
+type OnboardingStep = 'welcome' | 'set-name' | 'add-contact' | 'complete';
 
 export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
+  const [userName, setUserName] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const handleSetName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+
+    try {
+      setError(null);
+      await updateUser({ name: userName.trim() });
+      localStorage.setItem('orbit_user_name', userName.trim());
+      setCurrentStep('add-contact');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save name');
+    }
+  };
 
   const handleAddContact = async (contact: Omit<Contact, 'name'> & { name: string }) => {
     try {
@@ -69,11 +87,56 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
             </div>
 
             <button
-              onClick={() => setCurrentStep('add-contact')}
+              onClick={() => setCurrentStep('set-name')}
               className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
             >
               Get Started
             </button>
+          </div>
+        )}
+
+        {currentStep === 'set-name' && (
+          <div className="p-4 sm:p-6 md:p-8">
+            <div className="mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">What's your name?</h2>
+              <p className="text-gray-600">
+                This is how Orbit will address you and sign messages on your behalf.
+              </p>
+            </div>
+
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-700">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSetName} className="space-y-6">
+              <div>
+                <label htmlFor="userName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Your Name
+                </label>
+                <input
+                  id="userName"
+                  type="text"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder="e.g., Anna, John, Sarah"
+                  className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoFocus
+                  required
+                />
+                <p className="mt-2 text-sm text-gray-500">
+                  Example: If your name is "Anna", messages will be signed "- Anna"
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors min-h-[44px]"
+              >
+                Continue
+              </button>
+            </form>
           </div>
         )}
 

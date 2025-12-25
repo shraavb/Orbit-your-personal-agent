@@ -8,7 +8,7 @@ import HistoryDrawer, { HistoryDrawerButton } from './components/HistoryDrawer';
 import OnboardingHints from './components/OnboardingHints';
 import FloatingConversationCard from './components/FloatingConversationCard';
 import ErrorNotification from './components/ErrorNotification';
-import { sendVoiceRequest, confirmAction, VoiceResponse, CharacterAlignment } from './api/client';
+import { sendVoiceRequest, confirmAction, VoiceResponse, CharacterAlignment, getUser } from './api/client';
 import { useNotifications } from './hooks/useNotifications';
 
 interface HistoryItem {
@@ -36,18 +36,41 @@ function App() {
   const [showFloatingCard, setShowFloatingCard] = useState(false);
   const [awaitingVoiceModification, setAwaitingVoiceModification] = useState(false);
   const [modificationPreview, setModificationPreview] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [nightMode, setNightMode] = useState(() => {
     const saved = localStorage.getItem('orbit_night_mode');
     return saved === 'true';
   });
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Check onboarding status on mount
+  // Check onboarding status and load user name on mount
   useEffect(() => {
     const onboardingComplete = localStorage.getItem('orbit_onboarding_complete');
     if (!onboardingComplete) {
       setShowOnboarding(true);
     }
+
+    // Load user name from localStorage or API
+    const loadUserName = async () => {
+      // First check localStorage for quick load
+      const savedName = localStorage.getItem('orbit_user_name');
+      if (savedName) {
+        setUserName(savedName);
+      }
+
+      // Then fetch from API to ensure sync
+      try {
+        const user = await getUser();
+        if (user.name) {
+          setUserName(user.name);
+          localStorage.setItem('orbit_user_name', user.name);
+        }
+      } catch (error) {
+        console.error('Failed to load user:', error);
+      }
+    };
+
+    loadUserName();
   }, []);
 
   // Save night mode preference
@@ -155,17 +178,19 @@ function App() {
         setIsQuestioning(false);
       }
 
-      // Add to history
-      setHistory((prev) => [
-        {
-          transcript: response.transcript,
-          agent_response: response.agent_response,
-          timestamp: new Date().toISOString(),
-          actionType: response.proposed_action?.action_type,
-          isAction: !!response.proposed_action,
-        },
-        ...prev,
-      ]);
+      // Add to history only if it's an action (not a conversational response)
+      if (response.proposed_action) {
+        setHistory((prev) => [
+          {
+            transcript: response.transcript,
+            agent_response: response.agent_response,
+            timestamp: new Date().toISOString(),
+            actionType: response.proposed_action.action_type,
+            isAction: true,
+          },
+          ...prev,
+        ]);
+      }
 
       // Play TTS audio if available
       if (response.tts_audio_url) {
@@ -211,17 +236,19 @@ function App() {
         console.warn('[App] No alignment data in confirmation response!');
       }
 
-      // Add to history (mark as action completion)
-      setHistory((prev) => [
-        {
-          transcript: modification || (confirmed ? 'Confirmed' : 'Cancelled'),
-          agent_response: response.message,
-          timestamp: new Date().toISOString(),
-          actionType: currentResponse.proposed_action?.action_type,
-          isAction: confirmed, // Only mark as action if confirmed
-        },
-        ...prev,
-      ]);
+      // Add to history only if action was confirmed (not cancelled or modified without confirmation)
+      if (confirmed && currentResponse.proposed_action) {
+        setHistory((prev) => [
+          {
+            transcript: modification || 'Confirmed',
+            agent_response: response.message,
+            timestamp: new Date().toISOString(),
+            actionType: currentResponse.proposed_action.action_type,
+            isAction: true,
+          },
+          ...prev,
+        ]);
+      }
 
       // Play TTS audio if available
       if (response.tts_audio_url) {
@@ -362,7 +389,14 @@ function App() {
 
       {/* Onboarding Wizard */}
       {showOnboarding && (
-        <OnboardingWizard onComplete={() => setShowOnboarding(false)} />
+        <OnboardingWizard onComplete={() => {
+          setShowOnboarding(false);
+          // Reload user name after onboarding
+          const savedName = localStorage.getItem('orbit_user_name');
+          if (savedName) {
+            setUserName(savedName);
+          }
+        }} />
       )}
 
       {/* Settings Modal */}
@@ -434,7 +468,9 @@ function App() {
           </h1>
           <p className={`text-base sm:text-lg md:text-xl mb-2 transition-colors ${
             nightMode ? 'text-blue-100' : 'text-gray-600'
-          }`}>Your Personal Voice Agent</p>
+          }`}>
+            {userName ? `${userName}'s Personal Voice Agent` : 'Your Personal Voice Agent'}
+          </p>
           <p className={`text-xs sm:text-sm italic transition-colors ${
             nightMode ? 'text-gray-300' : 'text-gray-500'
           }`}>Try saying: "Hi Orbit, can you hear me?"</p>

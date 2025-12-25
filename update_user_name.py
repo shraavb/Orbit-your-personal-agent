@@ -1,30 +1,44 @@
-"""Script to view and update the user name in the database."""
+#!/usr/bin/env python3
+"""Update default user name to Shraav for local testing."""
 
-from backend.models.db import get_db
+import sys
+from pathlib import Path
+
+# Add backend to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from backend.models.db import SessionLocal
 from backend.models.database import User
 
+
 def main():
-    db = next(get_db())
+    """Update user name to Shraav."""
+    db = SessionLocal()
 
-    # Get the first (and only) user
-    user = db.query(User).first()
+    try:
+        # Get the first (and only) user
+        user = db.query(User).first()
 
-    if user:
-        print(f"Current user name: {user.name}")
-        print(f"Current user ID: {user.id}")
+        if not user:
+            print("No user found in database. Will be created as 'Shraav' on next API call.")
+            return
 
-        # Uncomment below to change the name
-        # new_name = "Your Name Here"
-        # user.name = new_name
-        # db.commit()
-        # print(f"Updated user name to: {new_name}")
-    else:
-        print("No user found in database")
-        print("Creating default user...")
-        new_user = User(name="User")
-        db.add(new_user)
-        db.commit()
-        print(f"Created user with name: User")
+        old_name = user.name
+
+        # Update to Shraav if it's different
+        if old_name != "Shraav":
+            user.name = "Shraav"
+            db.commit()
+            print(f"✅ Updated user name: '{old_name}' → 'Shraav'")
+        else:
+            print(f"✅ User name is already 'Shraav'")
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 
 if __name__ == "__main__":
     main()

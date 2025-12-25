@@ -2,6 +2,7 @@
 
 import base64
 import json
+import re
 from datetime import datetime
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, status
@@ -23,6 +24,94 @@ from backend.services.tts import get_tts_service
 from backend.services.contacts import get_contact_service
 
 router = APIRouter()
+
+
+def _apply_modification_to_params(
+    modification_text: str,
+    original_params: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
+    """
+    Parse natural language modification and apply to existing parameters.
+
+    Handles patterns like:
+    - "replace X with Y"
+    - "change X to Y"
+    - "make it X"
+    - "say X instead"
+    - "just say X"
+
+    Args:
+        modification_text: User's voice modification instruction
+        original_params: Original action parameters
+
+    Returns:
+        Modified parameters dict, or None if couldn't parse
+    """
+    mod_lower = modification_text.lower().strip()
+
+    # Pattern 1: "replace X with Y" or "change X to Y"
+    replace_patterns = [
+        r"replace\s+(.+?)\s+with\s+(.+)",
+        r"change\s+(.+?)\s+to\s+(.+)",
+        r"swap\s+(.+?)\s+(?:with|for)\s+(.+)",
+    ]
+
+    for pattern in replace_patterns:
+        match = re.search(pattern, mod_lower, re.IGNORECASE)
+        if match:
+            old_text = match.group(1).strip()
+            new_text = match.group(2).strip()
+
+            # Apply replacement to message/body field
+            modified_params = original_params.copy()
+
+            # Find which field contains the message
+            message_field = None
+            if 'message' in modified_params:
+                message_field = 'message'
+            elif 'body' in modified_params:
+                message_field = 'body'
+
+            if message_field and modified_params.get(message_field):
+                # Case-insensitive replacement
+                original_message = modified_params[message_field]
+                modified_message = re.sub(
+                    re.escape(old_text),
+                    new_text,
+                    original_message,
+                    flags=re.IGNORECASE
+                )
+                modified_params[message_field] = modified_message
+                print(f"[Modification] Replaced '{old_text}' with '{new_text}': {modified_message}")
+                return modified_params
+
+    # Pattern 2: "make it X" or "say X instead" or "just say X"
+    direct_patterns = [
+        r"(?:make it|say|send)\s+(.+)",
+        r"just\s+(?:say|send)\s+(.+)",
+        r"instead\s+(?:say|send)\s+(.+)",
+    ]
+
+    for pattern in direct_patterns:
+        match = re.search(pattern, mod_lower, re.IGNORECASE)
+        if match:
+            new_message = match.group(1).strip()
+
+            # Replace entire message
+            modified_params = original_params.copy()
+            message_field = None
+            if 'message' in modified_params:
+                message_field = 'message'
+            elif 'body' in modified_params:
+                message_field = 'body'
+
+            if message_field:
+                modified_params[message_field] = new_message
+                print(f"[Modification] Replaced entire message with: {new_message}")
+                return modified_params
+
+    # Couldn't parse - return None to fallback to agent
+    return None
 
 
 def _build_followup_input(conversation_state: Dict, user_answer: str) -> str:
@@ -245,10 +334,10 @@ async def process_voice_request(
                     continue
 
         # Step 7: Store in database
-        # Get or create default user (single user for MVP)
+        # Get or create default user (single user for MVP, default to "Shraav" for local testing)
         if not user:
             user = User(
-                name="Default User",
+                name="Shraav",
                 email="user@orbit.local"
             )
             db.add(user)
@@ -338,48 +427,95 @@ async def confirm_action(
                 # User wants to modify
                 db_request.status = RequestStatus.PROCESSING
 
-                # Re-process modification through agent
-                agent_service = get_agent_service()
+                # Get original action
+                original_action = db_request.agent_action
+                if not original_action:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="No action to modify"
+                    )
 
-                # Build context from original request
-                modification_input = (
-                    f"User's modification: {request.modification}. "
-                    f"Original request was: {db_request.transcript}"
+                # Try to parse and apply modification directly
+                original_params = original_action.get("parameters", {})
+                modified_params = _apply_modification_to_params(
+                    request.modification,
+                    original_params
                 )
 
-                agent_result = agent_service.process_request(
-                    user_input=modification_input,
-                    metadata={"tags": ["modification", "voice_confirm"]}
-                )
+                if modified_params:
+                    # Successfully parsed modification - apply it
+                    new_proposed_action = original_action.copy()
+                    new_proposed_action["parameters"] = modified_params
 
-                # Extract new proposed action
-                new_proposed_action = None
-                for step in agent_result.get("intermediate_steps", []):
-                    agent_action, observation = step
-                    if observation:
-                        try:
-                            action_data = json.loads(observation)
-                            action_type = action_data.get("action_type")
-                            if action_type in ["send_sms", "send_email", "send_slack"]:
-                                new_proposed_action = action_data
-                                break
-                        except (json.JSONDecodeError, ValueError):
-                            continue
+                    # Generate confirmation message
+                    recipient_name = modified_params.get("recipient_name", "them")
+                    message_text = modified_params.get("message") or modified_params.get("body", "")
 
-                # Update request with new action
-                # Extract text from structured response if needed
-                response_text = agent_result["response"]
-                if isinstance(response_text, list):
-                    if len(response_text) > 0 and isinstance(response_text[0], dict) and 'text' in response_text[0]:
-                        response_text = response_text[0]['text']
-                    elif len(response_text) == 0:
-                        response_text = "Got it!"
-                if not isinstance(response_text, str):
-                    response_text = str(response_text)
+                    action_type = new_proposed_action.get("action_type")
+                    if action_type == "send_sms":
+                        message = f"Updated! I'll send an SMS to {recipient_name}: '{message_text}'. Should I send it?"
+                    elif action_type == "send_email":
+                        subject = modified_params.get("subject", "")
+                        message = f"Updated! I'll send an email to {recipient_name} with subject '{subject}'. Should I send it?"
+                    elif action_type == "send_slack":
+                        if modified_params.get("is_channel"):
+                            channel = modified_params.get("channel_id", "#channel")
+                            message = f"Updated! I'll post to Slack channel {channel}: '{message_text}'. Should I send it?"
+                        else:
+                            message = f"Updated! I'll send a Slack DM to {recipient_name}: '{message_text}'. Should I send it?"
+                    elif action_type == "send_whatsapp":
+                        message = f"Updated! I'll send a WhatsApp message to {recipient_name}: '{message_text}'. Should I send it?"
+                    else:
+                        message = "Updated! Should I send it?"
 
-                db_request.agent_response = response_text
-                db_request.agent_action = new_proposed_action
-                message = response_text
+                    db_request.agent_response = message
+                    db_request.agent_action = new_proposed_action
+                else:
+                    # Couldn't parse - fallback to agent processing
+                    print(f"[Modification] Couldn't parse '{request.modification}', using agent fallback")
+                    agent_service = get_agent_service()
+
+                    # Build context from original request with better framing
+                    modification_input = (
+                        f"The user wants to modify the message from their previous request. "
+                        f"Original request: {db_request.transcript}. "
+                        f"Modification instruction: {request.modification}. "
+                        f"Apply the modification and call the tool again with the updated message."
+                    )
+
+                    agent_result = agent_service.process_request(
+                        user_input=modification_input,
+                        metadata={"tags": ["modification", "voice_confirm"]}
+                    )
+
+                    # Extract new proposed action
+                    new_proposed_action = None
+                    for step in agent_result.get("intermediate_steps", []):
+                        agent_action, observation = step
+                        if observation:
+                            try:
+                                action_data = json.loads(observation)
+                                action_type = action_data.get("action_type")
+                                if action_type in ["send_sms", "send_email", "send_slack", "send_whatsapp"]:
+                                    new_proposed_action = action_data
+                                    break
+                            except (json.JSONDecodeError, ValueError):
+                                continue
+
+                    # Update request with new action
+                    # Extract text from structured response if needed
+                    response_text = agent_result["response"]
+                    if isinstance(response_text, list):
+                        if len(response_text) > 0 and isinstance(response_text[0], dict) and 'text' in response_text[0]:
+                            response_text = response_text[0]['text']
+                        elif len(response_text) == 0:
+                            response_text = "Got it!"
+                    if not isinstance(response_text, str):
+                        response_text = str(response_text)
+
+                    db_request.agent_response = response_text
+                    db_request.agent_action = new_proposed_action
+                    message = response_text
             else:
                 # User cancelled
                 db_request.status = RequestStatus.CANCELLED

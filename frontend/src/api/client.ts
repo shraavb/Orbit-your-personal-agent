@@ -221,3 +221,36 @@ export async function searchContacts(query: string): Promise<Contact[]> {
   }
   return response.json();
 }
+
+// User Types
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface UpdateUserRequest {
+  name: string;
+}
+
+// User API Functions
+export async function getUser(): Promise<User> {
+  const response = await fetch(`${API_BASE_URL}/user`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function updateUser(request: UpdateUserRequest): Promise<User> {
+  const response = await fetch(`${API_BASE_URL}/user`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update user');
+  }
+  return response.json();
+}
