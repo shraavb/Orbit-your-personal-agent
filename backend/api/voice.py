@@ -26,6 +26,48 @@ from backend.services.contacts import get_contact_service
 router = APIRouter()
 
 
+@router.post("/voice/transcribe", status_code=status.HTTP_200_OK)
+async def transcribe_only(request: VoiceRequest):
+    """
+    Transcribe audio without processing through the agent.
+    Used for voice modifications where we only need the transcript.
+    """
+    try:
+        # Get ASR service
+        asr_service = get_asr_service()
+
+        # Transcribe audio
+        try:
+            transcript = asr_service.transcribe_base64(request.audio_data)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Transcription failed: {str(e)}"
+            )
+
+        if not transcript:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not transcribe audio. Please speak clearly and try again."
+            )
+
+        return {"transcript": transcript}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error transcribing audio: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+
 def _apply_modification_to_params(
     modification_text: str,
     original_params: Dict[str, Any]
@@ -407,9 +449,36 @@ async def confirm_action(
 
         # Update status based on confirmation
         if request.confirmed:
+            # Check if user provided a modification
+            if request.modification:
+                # Apply modification before executing
+                original_action = db_request.agent_action
+                if not original_action:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="No action to modify"
+                    )
+
+                # The modification is the complete replacement message
+                # (not a natural language instruction to parse)
+                modified_params = original_action.get("parameters", {}).copy()
+
+                # Replace the message/body field with the modification
+                if 'message' in modified_params:
+                    modified_params['message'] = request.modification
+                    print(f"[Modification] Replaced message: '{request.modification}'")
+                elif 'body' in modified_params:
+                    modified_params['body'] = request.modification
+                    print(f"[Modification] Replaced body: '{request.modification}'")
+
+                # Update the action with modified parameters
+                modified_action = original_action.copy()
+                modified_action["parameters"] = modified_params
+                db_request.agent_action = modified_action
+
             db_request.status = RequestStatus.CONFIRMED
 
-            # Execute the action
+            # Execute the action (with modification if provided)
             execution_result = await execute_action(
                 db_request.agent_action,
                 db_request.id,

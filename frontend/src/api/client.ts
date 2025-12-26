@@ -95,6 +95,43 @@ export async function sendVoiceRequest(audioBlob: Blob): Promise<VoiceResponse> 
 }
 
 /**
+ * Transcribe audio without processing through agent (for voice modifications).
+ */
+export async function transcribeVoice(audioBlob: Blob): Promise<{ transcript: string }> {
+  // Convert blob to base64
+  const reader = new FileReader();
+  const base64Audio = await new Promise<string>((resolve, reject) => {
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      // Remove data URL prefix
+      const base64Data = base64.split(',')[1];
+      resolve(base64Data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(audioBlob);
+  });
+
+  const response = await fetch(`${API_BASE_URL}/voice/transcribe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      audio_data: base64Audio,
+      audio_format: 'webm',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ detail: response.statusText }));
+    const errorMessage = errorBody.detail || errorBody.message || response.statusText;
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+/**
  * Confirm or cancel a proposed action.
  */
 export async function confirmAction(request: ConfirmActionRequest): Promise<ConfirmActionResponse> {

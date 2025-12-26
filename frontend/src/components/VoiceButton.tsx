@@ -1,15 +1,28 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 
 interface VoiceButtonProps {
   onRecordingComplete: (audioBlob: Blob) => void;
   disabled?: boolean;
 }
 
-export default function VoiceButton({ onRecordingComplete, disabled }: VoiceButtonProps) {
+export interface VoiceButtonHandle {
+  startRecording: () => void;
+}
+
+const VoiceButton = forwardRef<VoiceButtonHandle, VoiceButtonProps>(({ onRecordingComplete, disabled }, ref) => {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  // Expose startRecording method to parent via ref
+  useImperativeHandle(ref, () => ({
+    startRecording: () => {
+      if (!disabled && !isRecording) {
+        startRecording();
+      }
+    }
+  }));
 
   const startRecording = async () => {
     try {
@@ -95,4 +108,8 @@ export default function VoiceButton({ onRecordingComplete, disabled }: VoiceButt
       )}
     </div>
   );
-}
+});
+
+VoiceButton.displayName = 'VoiceButton';
+
+export default VoiceButton;

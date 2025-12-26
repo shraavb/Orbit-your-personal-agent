@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { maskEmail, maskPhone, maskSlackUserId } from '../utils/privacy';
 
 interface ContactDetailsProps {
   contactName: string; // Used for localStorage key
@@ -31,24 +32,6 @@ export default function ContactDetails({
   useEffect(() => {
     localStorage.setItem(storageKey, isVisible ? 'visible' : 'masked');
   }, [isVisible, storageKey]);
-
-  // Masking functions
-  const maskPhone = (phone: string): string => {
-    if (phone.length < 4) return '********';
-    return '****' + phone.slice(-4);
-  };
-
-  const maskEmail = (email: string): string => {
-    const parts = email.split('@');
-    if (parts.length !== 2) return '********';
-    const [local, domain] = parts;
-    if (local.length === 0) return '********';
-    return local[0] + '****@' + domain;
-  };
-
-  const maskSlack = (): string => {
-    return '********';
-  };
 
   return (
     <div className={`space-y-1 ${compact ? 'text-xs' : 'text-sm'}`}>
@@ -102,7 +85,7 @@ export default function ContactDetails({
         {slack_user_id && (
           <div>
             <span className="font-medium">Slack:</span>{' '}
-            {isVisible ? slack_user_id : maskSlack()}
+            {isVisible ? slack_user_id : maskSlackUserId(slack_user_id)}
           </div>
         )}
         {slack_channel && (

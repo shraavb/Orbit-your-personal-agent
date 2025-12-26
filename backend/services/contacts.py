@@ -67,23 +67,45 @@ class ContactService:
         """Reload contacts from file (useful for updates)."""
         self._load_contacts()
 
-    def get_contact(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_contact(self, name: str, user_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Get contact information by name with fuzzy matching.
 
         Matching logic:
-        1. Try exact match first (case-insensitive)
-        2. Try partial match (name contains query or query contains name)
-        3. If multiple matches, return only if they're the same person (same full_name)
+        1. Check if name is a self-reference (me, myself, I) and resolve to user
+        2. Try exact match first (case-insensitive)
+        3. Try partial match (name contains query or query contains name)
+        4. If multiple matches, return only if they're the same person (same full_name)
 
         Args:
             name: Contact name (case-insensitive, can be partial)
+            user_name: Current user's name for self-reference resolution (optional)
 
         Returns:
             Contact dict or None if not found or ambiguous
         """
         name_lower = name.lower().strip()
         print(f"Contact lookup: searching for '{name}' (normalized: '{name_lower}')")
+
+        # Handle self-references (me, myself, I)
+        self_references = ['me', 'myself', 'i', 'my self']
+        if name_lower in self_references:
+            if user_name:
+                print(f"Self-reference detected: '{name}' -> resolving to user '{user_name}'")
+                name_lower = user_name.lower()
+                name = user_name
+            else:
+                print(f"Self-reference detected but no user_name provided, trying to find user in contacts")
+                # Fallback: try to find contact with name containing "Shraav" (the current user)
+                for contact_name, contact_info in self.contacts.items():
+                    if 'shraav' in contact_name.lower():
+                        print(f"Found user contact: {contact_name}")
+                        return {
+                            "name": contact_name,
+                            **contact_info
+                        }
+                print("Could not resolve self-reference - no user found in contacts")
+                return None
 
         # Step 1: Try exact match first
         for contact_name, contact_info in self.contacts.items():

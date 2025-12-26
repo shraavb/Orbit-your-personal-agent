@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VoiceResponse, ProposedAction } from '../api/client';
+import { maskSensitiveText } from '../utils/privacy';
 
 interface FloatingConversationCardProps {
   isOpen: boolean;
@@ -289,6 +290,7 @@ export default function FloatingConversationCard({
               </div>
               <button
                 onClick={onClose}
+                onPointerDown={(e) => e.stopPropagation()}
                 className="p-2.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="Close conversation"
               >
@@ -303,13 +305,13 @@ export default function FloatingConversationCard({
               {/* Transcript */}
               <div>
                 <div className="text-xs text-gray-500 mb-1">You said:</div>
-                <div className="text-sm text-gray-900 font-medium break-words">{currentResponse.transcript}</div>
+                <div className="text-sm text-gray-900 font-medium break-words">{maskSensitiveText(currentResponse.transcript)}</div>
               </div>
 
               {/* Agent Response */}
               <div>
                 <div className="text-xs text-gray-500 mb-1">Orbit:</div>
-                <div className="text-sm text-gray-700 break-words">{currentResponse.agent_response}</div>
+                <div className="text-sm text-gray-700 break-words">{maskSensitiveText(currentResponse.agent_response)}</div>
               </div>
 
               {/* Questioning Mode Indicator */}
@@ -325,6 +327,7 @@ export default function FloatingConversationCard({
                 <button
                   className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
                   onClick={onReplayAudio}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
                   🔊 Replay Audio
                 </button>
@@ -446,6 +449,7 @@ export default function FloatingConversationCard({
                       <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           onClick={confirmPreview}
+                          onPointerDown={(e) => e.stopPropagation()}
                           disabled={isProcessing}
                           className="w-full sm:flex-1 sm:min-w-[100px] px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors text-sm font-medium"
                         >
@@ -454,6 +458,7 @@ export default function FloatingConversationCard({
 
                         <button
                           onClick={editMore}
+                          onPointerDown={(e) => e.stopPropagation()}
                           disabled={isProcessing}
                           className="w-full sm:w-auto px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:bg-gray-100 transition-colors text-sm font-medium"
                         >
@@ -462,6 +467,7 @@ export default function FloatingConversationCard({
 
                         <button
                           onClick={cancelPreview}
+                          onPointerDown={(e) => e.stopPropagation()}
                           disabled={isProcessing}
                           className="w-full sm:w-auto px-4 py-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:bg-gray-100 transition-colors text-sm font-medium"
                         >
@@ -478,6 +484,7 @@ export default function FloatingConversationCard({
                         type="text"
                         value={textModification}
                         onChange={(e) => setTextModification(e.target.value)}
+                        onPointerDown={(e) => e.stopPropagation()}
                         placeholder="Type your modification..."
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         onKeyDown={(e) => {
@@ -493,6 +500,7 @@ export default function FloatingConversationCard({
                       <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           onClick={handleConfirmClick}
+                          onPointerDown={(e) => e.stopPropagation()}
                           disabled={isProcessing}
                           className="w-full sm:flex-1 sm:min-w-[100px] px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
                         >
@@ -501,6 +509,7 @@ export default function FloatingConversationCard({
 
                         <button
                           onClick={onVoiceModification}
+                          onPointerDown={(e) => e.stopPropagation()}
                           disabled={isProcessing}
                           className={`w-full sm:w-auto px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
                             awaitingVoiceModification
@@ -514,6 +523,7 @@ export default function FloatingConversationCard({
 
                         <button
                           onClick={() => setShowTextInput(!showTextInput)}
+                          onPointerDown={(e) => e.stopPropagation()}
                           disabled={isProcessing}
                           className={`w-full sm:w-auto px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
                             showTextInput
@@ -527,6 +537,7 @@ export default function FloatingConversationCard({
 
                         <button
                           onClick={handleCancelClick}
+                          onPointerDown={(e) => e.stopPropagation()}
                           disabled={isProcessing}
                           className="w-full sm:w-auto px-4 py-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-sm font-medium"
                         >
@@ -537,6 +548,7 @@ export default function FloatingConversationCard({
                       {showTextInput && textModification.trim() && (
                         <button
                           onClick={handleModifyClick}
+                          onPointerDown={(e) => e.stopPropagation()}
                           disabled={isProcessing}
                           className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors text-sm font-medium"
                         >

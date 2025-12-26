@@ -2,6 +2,7 @@
 
 import io
 import base64
+import re
 import tempfile
 from typing import Optional
 
@@ -13,6 +14,32 @@ except ImportError:
     print("WARNING: Whisper not available. ASR will not work. Install with Python 3.9-3.12.")
 
 from backend.config import settings
+
+
+# Common ASR misrecognitions that need correction
+NAME_CORRECTIONS = {
+    # Pattern: misrecognition -> correct spelling (case-insensitive)
+    r'\bshrub\b': 'Shraav',
+    r'\bshrav\b': 'Shraav',
+    r'\bshraav\b': 'Shraav',
+    r'\bshrove\b': 'Shraav',
+}
+
+
+def correct_name_misrecognitions(text: str) -> str:
+    """
+    Correct common ASR misrecognitions of proper names.
+
+    Args:
+        text: Transcribed text that may contain misrecognized names
+
+    Returns:
+        Text with corrected names
+    """
+    corrected = text
+    for pattern, replacement in NAME_CORRECTIONS.items():
+        corrected = re.sub(pattern, replacement, corrected, flags=re.IGNORECASE)
+    return corrected
 
 
 class ASRService:
@@ -85,6 +112,13 @@ class ASRService:
             )
 
             transcript = result["text"].strip()
+
+            # Apply name corrections for common misrecognitions
+            original_transcript = transcript
+            transcript = correct_name_misrecognitions(transcript)
+
+            if transcript != original_transcript:
+                print(f"Name correction applied: '{original_transcript}' -> '{transcript}'")
 
             print(f"Detected language: {result.get('language', language)}")
             print(f"Transcript: {transcript}")

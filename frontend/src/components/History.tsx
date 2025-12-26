@@ -1,3 +1,5 @@
+import { maskSensitiveText } from '../utils/privacy';
+
 interface HistoryItem {
   transcript: string;
   agent_response: string;
@@ -60,11 +62,11 @@ export default function History({ items }: HistoryProps) {
 
             <div className="mb-3">
               <div className="text-xs text-gray-500 mb-1">You said:</div>
-              <div className="text-gray-900 font-medium">{item.transcript}</div>
+              <div className="text-gray-900 font-medium">{maskSensitiveText(item.transcript)}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500 mb-1">Orbit:</div>
-              <div className="text-gray-700">{item.agent_response}</div>
+              <div className="text-gray-700">{maskSensitiveText(item.agent_response)}</div>
             </div>
             <div className="text-xs text-gray-400 mt-2 flex items-center gap-1">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

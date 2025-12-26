@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import VoiceButton from './components/VoiceButton';
+import VoiceButton, { VoiceButtonHandle } from './components/VoiceButton';
 import OnboardingWizard from './components/OnboardingWizard';
 import SettingsModal from './components/SettingsModal';
 import AnimatedCharacter, { CharacterState } from './components/AnimatedCharacter';
@@ -8,7 +8,7 @@ import HistoryDrawer, { HistoryDrawerButton } from './components/HistoryDrawer';
 import OnboardingHints from './components/OnboardingHints';
 import FloatingConversationCard from './components/FloatingConversationCard';
 import ErrorNotification from './components/ErrorNotification';
-import { sendVoiceRequest, confirmAction, VoiceResponse, CharacterAlignment, getUser } from './api/client';
+import { sendVoiceRequest, transcribeVoice, confirmAction, VoiceResponse, CharacterAlignment, getUser } from './api/client';
 import { useNotifications } from './hooks/useNotifications';
 
 interface HistoryItem {
@@ -42,6 +42,7 @@ function App() {
     return saved === 'true';
   });
   const audioRef = useRef<HTMLAudioElement>(null);
+  const voiceButtonRef = useRef<VoiceButtonHandle>(null);
 
   // Check onboarding status and load user name on mount
   useEffect(() => {
@@ -142,18 +143,20 @@ function App() {
       // Initialize audio on first interaction
       initializeAudio();
 
-      const response = await sendVoiceRequest(audioBlob);
-
-      // Check if this is a voice modification
+      // Check if this is a voice modification BEFORE sending to backend
       if (awaitingVoiceModification && currentResponse) {
-        // Set preview instead of confirming immediately
+        // Use transcription-only endpoint (don't process through agent)
+        const { transcript } = await transcribeVoice(audioBlob);
         setAwaitingVoiceModification(false);
-        setModificationPreview(response.transcript);
+        setModificationPreview(transcript);
+        setIsProcessing(false);
+        setCharacterState('idle');
         return;
       }
 
+      const response = await sendVoiceRequest(audioBlob);
+
       setCurrentResponse(response);
-      setShowFloatingCard(true);
       setAwaitingVoiceModification(false);  // Clear flag when new response arrives
 
       // Store alignment data for lip-sync
@@ -161,6 +164,7 @@ function App() {
         hasAlignment: !!response.tts_alignment,
         alignmentChars: response.tts_alignment?.characters?.length,
         hasTtsUrl: !!response.tts_audio_url,
+        hasProposedAction: !!response.proposed_action,
       });
 
       if (response.tts_alignment) {
@@ -171,26 +175,25 @@ function App() {
       }
 
       // NEW: Check if agent is asking a question (questioning mode)
-      if (!response.proposed_action && response.agent_response.includes('?')) {
+      const isQuestion = !response.proposed_action && response.agent_response.includes('?');
+      if (isQuestion) {
         setIsQuestioning(true);
         setCharacterState('listening');
       } else {
         setIsQuestioning(false);
       }
 
-      // Add to history only if it's an action (not a conversational response)
-      if (response.proposed_action) {
-        setHistory((prev) => [
-          {
-            transcript: response.transcript,
-            agent_response: response.agent_response,
-            timestamp: new Date().toISOString(),
-            actionType: response.proposed_action.action_type,
-            isAction: true,
-          },
-          ...prev,
-        ]);
-      }
+      // Show floating card if there's an action OR if agent is asking a question
+      const shouldShowCard = !!(response.proposed_action || isQuestion);
+      console.log('[App] Card visibility decision:', {
+        hasProposedAction: !!response.proposed_action,
+        isQuestion,
+        shouldShowCard,
+        actionType: response.proposed_action?.action_type
+      });
+      setShowFloatingCard(shouldShowCard);
+
+      // Do NOT add to history here - only add after confirmation
 
       // Play TTS audio if available
       if (response.tts_audio_url) {
@@ -275,6 +278,11 @@ function App() {
   const handleVoiceModification = () => {
     // Set flag to indicate next voice input is a modification
     setAwaitingVoiceModification(true);
+
+    // Auto-trigger voice recording
+    if (voiceButtonRef.current) {
+      voiceButtonRef.current.startRecording();
+    }
   };
 
   return (
@@ -481,6 +489,7 @@ function App() {
           {/* Voice Button */}
           <div className="flex flex-col items-center">
             <VoiceButton
+              ref={voiceButtonRef}
               onRecordingComplete={handleRecordingComplete}
               disabled={isProcessing}
             />
