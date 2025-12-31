@@ -1,18 +1,21 @@
 services:
-  # Backend API
+  # Backend API (Demo Mode)
   - type: web
-    name: orbit-backend
+    name: orbit-demo-backend
     runtime: python
     plan: starter
+    branch: demo-dummy
     buildCommand: pip install -r backend/requirements.txt
     startCommand: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: DEMO_MODE
+        value: "true"
       - key: DATABASE_URL
         fromDatabase:
-          name: orbit-db
+          name: orbit-demo-db
           property: connectionString
       - key: ANTHROPIC_API_KEY
         sync: false
@@ -28,8 +31,8 @@ services:
         value: int8
 
 databases:
-  # PostgreSQL Database
-  - name: orbit-db
+  # PostgreSQL Database (Demo)
+  - name: orbit-demo-db
     plan: starter
-    databaseName: orbit
+    databaseName: orbit_demo
     user: orbit
