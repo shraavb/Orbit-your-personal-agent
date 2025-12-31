@@ -98,35 +98,10 @@ export default function AnimatedCharacter({
 
     let animationFrameId: number;
     let lastViseme: VisemeType = 'neutral';
-    // These are typed but currently unused (audio analysis disabled)
-    const audioContext: AudioContext | null = null;
-    const analyser: AnalyserNode | null = null;
-    const dataArray: Uint8Array | null = null;
 
-    // Try to create AudioContext for amplitude analysis
-    // DISABLED FOR NOW - causes audio playback issues
-    // We'll use timeline-only lip-sync
-    try {
-      // audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      // analyser = audioContext.createAnalyser();
-      // analyser.fftSize = 256;
-      // const bufferLength = analyser.frequencyBinCount;
-      // dataArray = new Uint8Array(bufferLength);
-
-      // // Check if audio element already has a source node
-      // // @ts-ignore - checking for existing source
-      // if (!audioElement.sourceNode) {
-      //   const source = audioContext.createMediaElementSource(audioElement);
-      //   source.connect(analyser);
-      //   analyser.connect(audioContext.destination);
-      //   // @ts-ignore - store reference to prevent duplicate sources
-      //   audioElement.sourceNode = source;
-      // }
-      console.log('[AnimatedCharacter] Audio amplitude analysis disabled, using timeline-only lip-sync');
-    } catch (err) {
-      console.warn('[AnimatedCharacter] Could not create AudioContext, using fallback:', err);
-      // Will use timeline-only mode
-    }
+    // Audio amplitude analysis is DISABLED - causes audio playback issues
+    // Using timeline-only lip-sync for now
+    console.log('[AnimatedCharacter] Using timeline-only lip-sync (audio analysis disabled)');
 
     // Animation loop - runs at 60fps
     const animate = () => {
@@ -137,48 +112,11 @@ export default function AnimatedCharacter({
 
       const currentTime = audioElement.currentTime;
 
-      // Get current viseme from timeline if available
+      // Get current viseme from timeline
       let targetViseme: VisemeType = 'neutral';
       if (visemeTimeline.length > 0) {
         targetViseme = getCurrentViseme(visemeTimeline, currentTime);
       }
-
-      // Analyze audio amplitude for more natural movement (if available)
-      let volume = 0.5; // Default moderate volume
-      if (analyser && dataArray) {
-        try {
-          analyser.getByteFrequencyData(dataArray);
-          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          volume = average / 255; // Normalize to 0-1
-        } catch (err) {
-          // Ignore errors, use default volume
-        }
-      }
-
-      // If no timeline data, use pure amplitude-based animation
-      if (visemeTimeline.length === 0) {
-        if (volume > 0.4) {
-          targetViseme = 'a'; // Wide open for loud sounds
-        } else if (volume > 0.25) {
-          targetViseme = 'o'; // Medium open
-        } else if (volume > 0.15) {
-          targetViseme = 'e'; // Slight smile
-        } else if (volume > 0.05) {
-          targetViseme = 'i'; // Small opening
-        } else {
-          targetViseme = 'neutral'; // Closed
-        }
-      } else if (analyser && dataArray) {
-        // Hybrid: Use timeline viseme but enhance with volume
-        // Boost open visemes when volume is high
-        if (volume > 0.4 && targetViseme === 'neutral') {
-          targetViseme = 'e'; // Override closed mouth during loud speech
-        } else if (volume < 0.05) {
-          // Force closed mouth during silence
-          targetViseme = 'neutral';
-        }
-      }
-      // else: just use timeline data as-is (no amplitude enhancement)
 
       // Only update if viseme changed (reduces re-renders)
       if (targetViseme !== lastViseme) {
@@ -196,9 +134,6 @@ export default function AnimatedCharacter({
     const handleEnded = () => {
       console.log('[AnimatedCharacter] Audio ended, stopping animation');
       cancelAnimationFrame(animationFrameId);
-      if (audioContext) {
-        audioContext.close().catch(() => {});
-      }
       setCurrentViseme('neutral');
     };
 
@@ -207,11 +142,6 @@ export default function AnimatedCharacter({
     return () => {
       cancelAnimationFrame(animationFrameId);
       audioElement.removeEventListener('ended', handleEnded);
-      if (audioContext && audioContext.state !== 'closed') {
-        audioContext.close().catch(() => {
-          // Ignore errors on cleanup
-        });
-      }
     };
   }, [audioElement, state, visemeTimeline]);
 

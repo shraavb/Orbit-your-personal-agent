@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 
 interface ContactDetailsProps {
   contactName: string; // Used for localStorage key
-  sms?: string;
-  whatsapp?: string;
-  email?: string;
-  slack_user_id?: string;
-  slack_channel?: string;
+  sms?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  slack_user_id?: string | null;
+  slack_channel?: string | null;
   compact?: boolean;
 }
 
