@@ -60,15 +60,22 @@ class Settings(BaseSettings):
         "http://localhost:5174",
         "http://localhost:5175",
         "http://localhost:3000",
+        # Vercel deployment URLs
+        "https://orbit-your-personal-agent.vercel.app",
+        "https://orbit-your-personal-agent-shraavbs-projects.vercel.app",
     ]
+
+    # Additional CORS origins (set via CORS_ORIGINS env var, comma-separated)
+    cors_origins_extra: Optional[str] = None
 
     @property
     def cors_origins_list(self) -> list[str]:
-        """Get CORS origins from environment or defaults."""
+        """Get CORS origins - combines defaults with env variable."""
+        origins = list(self.cors_origins)
         env_origins = os.getenv("CORS_ORIGINS", "")
         if env_origins:
-            return [origin.strip() for origin in env_origins.split(",")]
-        return self.cors_origins
+            origins.extend([origin.strip() for origin in env_origins.split(",")])
+        return origins
 
 
 # Global settings instance

@@ -100,9 +100,11 @@ app = FastAPI(
 )
 
 # CORS middleware for frontend
+# Allow all Vercel preview deployments via regex
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
+    allow_origin_regex=r"https://orbit-your-personal-agent.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
