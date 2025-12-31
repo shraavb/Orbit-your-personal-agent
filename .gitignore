@@ -77,3 +77,4 @@ backend/data/encryption_key.key
 
 # Whisper models cache
 .cache/
+render-demo.env
