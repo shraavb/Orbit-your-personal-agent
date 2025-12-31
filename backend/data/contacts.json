@@ -1,0 +1,98 @@
+{
+  "Mom": {
+    "full_name": "Sarah Johnson",
+    "sms": "+15551234567",
+    "whatsapp": "+15551234567",
+    "email": "sarah.johnson@email.com",
+    "slack_user_id": null,
+    "slack_channel": null
+  },
+  "Dad": {
+    "full_name": "Michael Johnson",
+    "sms": "+15551234568",
+    "whatsapp": "+15551234568",
+    "email": "michael.johnson@email.com",
+    "slack_user_id": null,
+    "slack_channel": null
+  },
+  "Emma": {
+    "full_name": "Emma Wilson",
+    "sms": "+15551234569",
+    "whatsapp": "+15551234569",
+    "email": "emma.wilson@gmail.com",
+    "slack_user_id": "U0DEMO001",
+    "slack_channel": null
+  },
+  "Jake": {
+    "full_name": "Jake Thompson",
+    "sms": "+15551234570",
+    "whatsapp": "+15551234570",
+    "email": "jake.thompson@outlook.com",
+    "slack_user_id": "U0DEMO002",
+    "slack_channel": null
+  },
+  "Rachel": {
+    "full_name": "Rachel Chen",
+    "sms": "+15551234571",
+    "whatsapp": "+15551234571",
+    "email": "rachel.chen@company.com",
+    "slack_user_id": "U0DEMO003",
+    "slack_channel": null
+  },
+  "David": {
+    "full_name": "David Miller",
+    "sms": null,
+    "whatsapp": null,
+    "email": "david.miller@company.com",
+    "slack_user_id": "U0DEMO004",
+    "slack_channel": null
+  },
+  "Sophie": {
+    "full_name": "Sophie Martinez",
+    "sms": "+15551234572",
+    "whatsapp": "+15551234572",
+    "email": "sophie.martinez@email.com",
+    "slack_user_id": null,
+    "slack_channel": null
+  },
+  "Alex": {
+    "full_name": "Alex Kim",
+    "sms": "+15551234573",
+    "whatsapp": null,
+    "email": "alex.kim@startup.io",
+    "slack_user_id": "U0DEMO005",
+    "slack_channel": null
+  },
+  "Grandma": {
+    "full_name": "Eleanor Johnson",
+    "sms": "+15551234574",
+    "whatsapp": null,
+    "email": null,
+    "slack_user_id": null,
+    "slack_channel": null
+  },
+  "Boss": {
+    "full_name": "Jennifer Adams",
+    "sms": null,
+    "whatsapp": null,
+    "email": "jennifer.adams@company.com",
+    "slack_user_id": "U0DEMO006",
+    "slack_channel": null
+  },
+  "Engineering": {
+    "full_name": "Engineering Team",
+    "sms": null,
+    "whatsapp": null,
+    "email": null,
+    "slack_user_id": null,
+    "slack_channel": "#engineering"
+  },
+  "General": {
+    "full_name": "General Channel",
+    "sms": null,
+    "whatsapp": null,
+    "email": null,
+    "slack_user_id": null,
+    "slack_channel": "#general"
+  }
+}
