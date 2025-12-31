@@ -132,6 +132,13 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </button>
               </div>
 
+              {/* Demo Data Notice */}
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <span className="font-medium">Sample Data:</span> These contacts are for demonstration purposes only.
+                </p>
+              </div>
+
               {/* Contact List */}
               {loading ? (
                 <div className="text-center py-8 text-gray-500">Loading contacts...</div>

@@ -180,12 +180,13 @@ function App() {
 
       // Add to history only if it's an action (not a conversational response)
       if (response.proposed_action) {
+        const action = response.proposed_action;
         setHistory((prev) => [
           {
             transcript: response.transcript,
             agent_response: response.agent_response,
             timestamp: new Date().toISOString(),
-            actionType: response.proposed_action.action_type,
+            actionType: action.action_type,
             isAction: true,
           },
           ...prev,
@@ -238,12 +239,13 @@ function App() {
 
       // Add to history only if action was confirmed (not cancelled or modified without confirmation)
       if (confirmed && currentResponse.proposed_action) {
+        const action = currentResponse.proposed_action;
         setHistory((prev) => [
           {
             transcript: modification || 'Confirmed',
             agent_response: response.message,
             timestamp: new Date().toISOString(),
-            actionType: currentResponse.proposed_action.action_type,
+            actionType: action.action_type,
             isAction: true,
           },
           ...prev,
@@ -283,6 +285,15 @@ function App() {
         ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950'
         : 'bg-gradient-to-br from-blue-50 to-purple-50'
     }`}>
+      {/* Demo Mode Banner */}
+      <div className={`w-full py-2 px-4 text-center text-sm z-50 ${
+        nightMode
+          ? 'bg-blue-900/80 text-blue-200 border-b border-blue-800'
+          : 'bg-blue-100 text-blue-800 border-b border-blue-200'
+      }`}>
+        <span className="font-medium">Demo Mode</span> — Actions are simulated. No real messages will be sent.
+      </div>
+
       {/* Day mode subtle light effects */}
       {!nightMode && (
         <>

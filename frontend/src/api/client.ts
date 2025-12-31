@@ -140,20 +140,20 @@ export interface Contact {
 export interface ContactCreate {
   name: string;
   full_name: string;
-  sms?: string;
-  whatsapp?: string;
-  email?: string;
-  slack_user_id?: string;
-  slack_channel?: string;
+  sms?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  slack_user_id?: string | null;
+  slack_channel?: string | null;
 }
 
 export interface ContactUpdate {
   full_name?: string;
-  sms?: string;
-  whatsapp?: string;
-  email?: string;
-  slack_user_id?: string;
-  slack_channel?: string;
+  sms?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  slack_user_id?: string | null;
+  slack_channel?: string | null;
 }
 
 export interface ContactListResponse {

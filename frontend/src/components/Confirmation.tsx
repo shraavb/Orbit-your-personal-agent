@@ -14,11 +14,12 @@ interface ConfirmationProps {
 }
 
 export default function Confirmation({
-  requestId,
+  requestId: _requestId,
   proposedAction,
   onConfirm,
   isProcessing = false,
 }: ConfirmationProps) {
+  // _requestId is available for future use (e.g., logging)
   const [modification, setModification] = useState('');
   const [showModify, setShowModify] = useState(false);
 

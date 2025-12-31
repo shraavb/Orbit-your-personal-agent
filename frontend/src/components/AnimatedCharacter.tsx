@@ -98,9 +98,10 @@ export default function AnimatedCharacter({
 
     let animationFrameId: number;
     let lastViseme: VisemeType = 'neutral';
-    let audioContext: AudioContext | null = null;
-    let analyser: AnalyserNode | null = null;
-    let dataArray: Uint8Array | null = null;
+    // These are typed but currently unused (audio analysis disabled)
+    const audioContext: AudioContext | null = null;
+    const analyser: AnalyserNode | null = null;
+    const dataArray: Uint8Array | null = null;
 
     // Try to create AudioContext for amplitude analysis
     // DISABLED FOR NOW - causes audio playback issues

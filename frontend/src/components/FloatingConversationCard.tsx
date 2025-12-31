@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { VoiceResponse, ProposedAction } from '../api/client';
+import { VoiceResponse } from '../api/client';
 
 interface FloatingConversationCardProps {
   isOpen: boolean;
@@ -258,7 +258,7 @@ export default function FloatingConversationCard({
           animate={{ x: position.x, y: position.y, opacity: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
-          onDragEnd={(event, info) => {
+          onDragEnd={(_event, info) => {
             const newPosition = { x: info.point.x, y: info.point.y };
             setPosition(newPosition);
             localStorage.setItem('orbit_card_position', JSON.stringify(newPosition));
