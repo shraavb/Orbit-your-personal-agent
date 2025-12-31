@@ -29,8 +29,8 @@ slack-sdk==3.34.0
 
 # Utilities
 python-dotenv==1.0.1
-pydantic==2.10.5
-pydantic-settings==2.7.1
+pydantic>=2.11.0
+pydantic-settings>=2.7.1
 
 # Redis (optional for MVP)
 redis==5.2.1
