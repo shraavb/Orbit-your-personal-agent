@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     app_name: str = "Orbit Voice Agent"
     debug: bool = False
 
+    # Demo Mode - when True, actions simulate success without executing
+    demo_mode: bool = False
+
     # Database
     database_url: str = "postgresql+psycopg://orbit:orbit@localhost:5432/orbit"
 

@@ -591,6 +591,28 @@ async def execute_action(
 async def execute_sms(params: Dict[str, Any], request_id: int, db: Session) -> Dict[str, Any]:
     """Execute SMS sending."""
     try:
+        from backend.config import settings
+
+        # Demo mode: simulate success without actual sending
+        if settings.demo_mode:
+            message = Message(
+                request_id=request_id,
+                message_type=MessageType.SMS,
+                recipient=params["recipient_phone"],
+                recipient_name=params.get("recipient_name"),
+                body=params["message"],
+                status="sent",
+                external_id=f"demo_sms_{request_id}",
+                sent_at=datetime.utcnow(),
+                message_metadata={"demo_mode": True}
+            )
+            db.add(message)
+            db.commit()
+            return {
+                "success": True,
+                "message": f"SMS sent to {params.get('recipient_name', params['recipient_phone'])}!"
+            }
+
         from backend.integrations.twilio_service import get_twilio_service
 
         twilio_service = get_twilio_service()
@@ -643,6 +665,29 @@ async def execute_sms(params: Dict[str, Any], request_id: int, db: Session) -> D
 async def execute_email(params: Dict[str, Any], request_id: int, db: Session) -> Dict[str, Any]:
     """Execute email sending."""
     try:
+        from backend.config import settings
+
+        # Demo mode: simulate success without actual sending
+        if settings.demo_mode:
+            message = Message(
+                request_id=request_id,
+                message_type=MessageType.EMAIL,
+                recipient=params["recipient_email"],
+                recipient_name=params.get("recipient_name"),
+                subject=params["subject"],
+                body=params["body"],
+                status="sent",
+                external_id=f"demo_email_{request_id}",
+                sent_at=datetime.utcnow(),
+                message_metadata={"demo_mode": True}
+            )
+            db.add(message)
+            db.commit()
+            return {
+                "success": True,
+                "message": f"Email sent to {params.get('recipient_name', params['recipient_email'])}!"
+            }
+
         from backend.integrations.gmail_service import get_gmail_service
 
         gmail_service = get_gmail_service()
@@ -697,14 +742,36 @@ async def execute_email(params: Dict[str, Any], request_id: int, db: Session) ->
 async def execute_slack(params: Dict[str, Any], request_id: int, db: Session) -> Dict[str, Any]:
     """Execute Slack message sending."""
     try:
-        from backend.integrations.slack_service import get_slack_service
-
-        slack_service = get_slack_service()
+        from backend.config import settings
 
         # Determine recipient (channel or user)
         recipient = params.get("channel_id") or params.get("user_id")
         if not recipient:
             return {"success": False, "error": "No channel_id or user_id specified"}
+
+        # Demo mode: simulate success without actual sending
+        if settings.demo_mode:
+            message = Message(
+                request_id=request_id,
+                message_type=MessageType.SLACK,
+                recipient=recipient,
+                recipient_name=params.get("recipient_name"),
+                body=params["message"],
+                status="sent",
+                external_id=f"demo_slack_{request_id}",
+                sent_at=datetime.utcnow(),
+                message_metadata={"demo_mode": True}
+            )
+            db.add(message)
+            db.commit()
+            return {
+                "success": True,
+                "message": f"Slack message sent to {params.get('recipient_name', recipient)}!"
+            }
+
+        from backend.integrations.slack_service import get_slack_service
+
+        slack_service = get_slack_service()
 
         # If using user token, send message directly (appears from user)
         # If using bot token, prepend sender name so recipient knows who it's from
@@ -756,6 +823,28 @@ async def execute_slack(params: Dict[str, Any], request_id: int, db: Session) ->
 async def execute_whatsapp(params: Dict[str, Any], request_id: int, db: Session) -> Dict[str, Any]:
     """Execute WhatsApp message sending."""
     try:
+        from backend.config import settings
+
+        # Demo mode: simulate success without actual sending
+        if settings.demo_mode:
+            message = Message(
+                request_id=request_id,
+                message_type=MessageType.WHATSAPP,
+                recipient=params["recipient_phone"],
+                recipient_name=params.get("recipient_name"),
+                body=params["message"],
+                status="sent",
+                external_id=f"demo_whatsapp_{request_id}",
+                sent_at=datetime.utcnow(),
+                message_metadata={"demo_mode": True}
+            )
+            db.add(message)
+            db.commit()
+            return {
+                "success": True,
+                "message": f"WhatsApp message sent to {params.get('recipient_name', params['recipient_phone'])}!"
+            }
+
         from backend.integrations.whatsapp_service import get_whatsapp_service
 
         whatsapp_service = get_whatsapp_service()
